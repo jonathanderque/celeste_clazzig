@@ -377,6 +377,10 @@ fn p8_sin(x: p8num) p8num {
     return -std.math.sin(x * 6.2831853071796); //https://pico-8.fandom.com/wiki/Math
 }
 
+fn p8_cos(x: p8num) p8num {
+    return -p8_sin((x) + 0.25);
+}
+
 fn rectfill(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
     const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
     _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
@@ -395,6 +399,24 @@ fn rectfill(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
     rect.w = @intFromFloat(w);
     rect.h = @intFromFloat(h);
     _ = sdl.SDL_RenderFillRect(renderer, &rect);
+}
+
+fn circfill(x: p8num, y: p8num, r: p8num, col: p8num) void {
+    const xi: c_int = @intFromFloat(x);
+    const yi: c_int = @intFromFloat(y);
+    const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
+    _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
+    if (r <= 1) {
+        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi, .w = 3, .h = 1 });
+        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi, .y = yi - 1, .w = 1, .h = 3 });
+    } else if (r <= 2) {
+        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 2, .y = yi - 1, .w = 5, .h = 3 });
+        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi - 2, .w = 3, .h = 5 });
+    } else if (r <= 3) {
+        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 3, .y = yi - 1, .w = 7, .h = 3 });
+        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi - 3, .w = 3, .h = 7 });
+        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 2, .y = yi - 2, .w = 5, .h = 5 });
+    }
 }
 
 fn print(str: []const u8, x: p8num, y: p8num, col: p8num) void {
@@ -529,6 +551,7 @@ const Player = struct {
     dash_accel: P8Point,
     spr_off: p8num,
     was_on_ground: bool,
+    hair: [5]Hair,
 
     fn init(self: *Player, common: *ObjectCommon) void {
         self.p_jump = false;
@@ -544,7 +567,7 @@ const Player = struct {
         self.spr_off = 0;
         self.was_on_ground = false;
         common.spr = 5;
-        // TODO self.create_hair();
+        create_hair(&self.hair, common);
     }
 
     fn update(self: *Player, common: *ObjectCommon) void {
@@ -753,17 +776,16 @@ const Player = struct {
     }
 
     fn draw(self: *Player, common: *ObjectCommon) void {
-        _ = self;
         // clamp in screen
         if (common.x < -1 or common.x > 121) {
             common.x = clamp(common.x, -1, 121);
             common.spd.x = 0;
         }
 
-        //set_hair_color(this.djump)
-        // draw_hair(this,this.flip.x and -1 or 1)
+        set_hair_color(self.djump);
+        draw_hair(&self.hair, common, if (common.flip_x) -1 else 1);
         spr(common.spr, common.x, common.y, 1, 1, common.flip_x, common.flip_y);
-        // unset_hair_color()
+        unset_hair_color();
     }
 };
 
@@ -773,10 +795,63 @@ fn psfx(x: p8num) void {
     }
 }
 
+const Hair = struct {
+    x: p8num,
+    y: p8num,
+    size: p8num,
+    isLast: bool,
+};
+
+fn create_hair(hair: []Hair, common: *ObjectCommon) void {
+    var i: p8num = 0;
+    while (i <= 4) : (i += 1) {
+        hair[@intFromFloat(i)] = Hair{
+            .x = common.x,
+            .y = common.y,
+            .size = @max(1, @min(2, 3 - i)),
+            .isLast = (i == 4),
+        };
+    }
+}
+
+fn set_hair_color(djump: p8num) void {
+    const col =
+        if (djump == 1)
+        8
+    else
+        (if (djump == 2)
+            (7 + @floor(@mod(frames / 3, 2)) * 4)
+        else
+            12);
+    pal(8, col);
+}
+
+fn draw_hair(hair: []Hair, common: *ObjectCommon, facing: p8num) void {
+    var last_x: p8num = common.x + 4 - facing * 2;
+    var last_y: p8num = common.y;
+    if (btn(k_down)) {
+        last_y += 4;
+    } else {
+        last_y += 3;
+    }
+    for (hair) |*h| {
+        h.x += (last_x - h.x) / 1.5;
+        h.y += (last_y + 0.5 - h.y) / 1.5;
+        circfill(h.x, h.y, h.size, 8);
+        last_x = h.x;
+        last_y = h.y;
+    }
+}
+
+fn unset_hair_color() void {
+    pal(8, 8);
+}
+
 const PlayerSpawn = struct {
     target: P8Point,
     state: p8num,
     delay: p8num,
+    hair: [5]Hair,
 
     fn init(self: *PlayerSpawn, common: *ObjectCommon) void {
         sfx(4);
@@ -788,7 +863,7 @@ const PlayerSpawn = struct {
         self.state = 0;
         self.delay = 0;
         common.solids = false;
-        // TODO create_hair(this);
+        create_hair(&self.hair, common);
     }
 
     fn update(self: *PlayerSpawn, common: *ObjectCommon) void {
@@ -823,11 +898,10 @@ const PlayerSpawn = struct {
     }
 
     fn draw(self: *PlayerSpawn, common: *ObjectCommon) void {
-        // set_hair_color(max_djump);
-        // draw_hair(self,1);
+        set_hair_color(max_djump);
+        draw_hair(&self.hair, common, 1);
         spr(common.spr, common.x, common.y, 1, 1, common.flip_x, common.flip_y);
-        _ = self;
-        // TODO unset_hair_color();
+        unset_hair_color();
     }
 };
 
@@ -1353,11 +1427,10 @@ const Orb = struct {
         }
 
         spr(102, common.x, common.y, 1, 1, false, false);
-        const off = frames / 30;
-        var i: usize = 0;
+        const off: p8num = frames / 30;
+        var i: p8num = 0;
         while (i <= 7) : (i += 1) {
-            _ = off;
-            // TODO circfill(this.x+4+cos(off+i/8)*8,this.y+4+sin(off+i/8)*8,1,7)
+            circfill(common.x + 4 + p8_cos(off + i / 8) * 8, common.y + 4 + p8_sin(off + i / 8) * 8, 1, 7);
         }
     }
 };
