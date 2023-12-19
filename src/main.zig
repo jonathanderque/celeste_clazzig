@@ -351,8 +351,6 @@ fn map(cel_x: p8num, cel_y: p8num, screen_x: p8num, screen_y: p8num, cel_w: p8nu
             const tile_index: usize = @intFromFloat(x + cel_x + (y + cel_y) * 128);
             if (tile_index < tilemap.len) {
                 const tile: u8 = tilemap[@mod(tile_index, tilemap.len)];
-                //hack
-                // TODO if (mask == 0 or (mask == 4 and tile_flags[tile] == 4) or gettileflag(tile, mask != 4 ? mask-1 : mask)) {
                 if (mask == 0 or (mask == 4 and tilemap_flags[tile] == 4) or fget(tile, if (mask != 4) mask - 1 else mask)) {
                     var src_rect: sdl.SDL_Rect = undefined;
                     src_rect.x = @intCast(8 * @mod(tile, 16));
@@ -1327,7 +1325,6 @@ const Message = struct {
             var i: p8num = 0;
             while (i < self.index) : (i += 1) {
                 if (self.text[@intFromFloat(i)] != '#') {
-                    // TODO change color back to 7 instead of 0
                     rectfill(self.off.x - 2, self.off.y - 2, self.off.x + 7, self.off.y + 6, 7);
                     print(self.text[@intFromFloat(i)..@intFromFloat(1 + i)], self.off.x, self.off.y, 0);
                     self.off.x += 5;
@@ -2010,9 +2007,7 @@ fn _draw() void {
 
     // -- platforms/big chest
     for (&objects) |*o| {
-        if (o.common.entity_type == EntityType.platform
-        //or o.common.entity_type == EntityType.big_chest
-        ) {
+        if (o.common.entity_type == EntityType.platform or o.common.entity_type == EntityType.big_chest) {
             draw_object(o);
         }
     }
@@ -2023,9 +2018,7 @@ fn _draw() void {
 
     // draw objects
     for (&objects) |*o| {
-        if (o.common.entity_type != EntityType.platform
-        //TODO and o.common.entity_type != EntityType.big_chest
-        ) {
+        if (o.common.entity_type != EntityType.platform and o.common.entity_type != EntityType.big_chest) {
             draw_object(o);
         }
     }
@@ -2180,7 +2173,6 @@ fn destroy_object(common: *ObjectCommon) void {
     common.active = false;
 }
 
-// TODO object move
 fn update_object(object: *Object) void {
     if (object.common.active) {
         object.common.move(object.common.spd.x, object.common.spd.y);
