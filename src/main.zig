@@ -516,6 +516,15 @@ fn _init() void {
     for (&dead_particles) |*particle| {
         particle.active = false;
     }
+    for (&particles) |*p| {
+        p.active = true;
+        p.x = rnd(128);
+        p.y = rnd(128);
+        p.s = 0 + @floor(rnd(5) / 4);
+        p.spd = P8Point{ .x = 0.25 + rnd(5), .y = 0 };
+        p.off = rnd(1);
+        p.c = 6 + @floor(0.5 + rnd(1));
+    }
     title_screen();
 }
 
@@ -561,9 +570,13 @@ const Particle = struct {
     y: p8num,
     t: p8num = 0,
     h: p8num = 0,
+    s: p8num = 0,
+    off: p8num = 0,
+    c: p8num = 0,
     spd: P8Point,
 };
 
+var particles: [25]Particle = undefined;
 var dead_particles: [8]Particle = undefined;
 
 // player entity //
@@ -2068,16 +2081,16 @@ fn _draw() void {
     map(room.x * 16, room.y * 16, 0, 0, 16, 16, 8);
 
     // -- particles
-    // foreach(particles, function(p)
-    // 	p.x += p.spd
-    // 	p.y += p8_sin(p.off)
-    // 	p.off+= min(0.05,p.spd/32)
-    // 	rectfill(p.x,p.y,p.x+p.s,p.y+p.s,p.c)
-    // 	if p.x>128+4 then
-    // 		p.x=-4
-    // 		p.y=rnd(128)
-    // 	end
-    // end)
+    for (&particles) |*p| {
+        p.x += p.spd.x;
+        p.y += p8_sin(p.off);
+        p.off += @min(0.05, p.spd.x / 32);
+        rectfill(p.x, p.y, p.x + p.s, p.y + p.s, p.c);
+        if (p.x > 128 + 4) {
+            p.x = -4;
+            p.y = rnd(128);
+        }
+    }
 
     for (&dead_particles) |*p| {
         if (p.active) {
