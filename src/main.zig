@@ -371,12 +371,35 @@ fn map(cel_x: p8num, cel_y: p8num, screen_x: p8num, screen_y: p8num, cel_w: p8nu
     }
 }
 
+var rnd_seed_lo: i64 = 0;
+var rnd_seed_hi: i64 = 1;
+fn pico8_random(max: p8num) i64 { //decomp'd pico-8
+    if (max == 0) {
+        return 0;
+    }
+    rnd_seed_hi = @addWithOverflow(((rnd_seed_hi << 16) | (rnd_seed_hi >> 16)), rnd_seed_lo)[0];
+    rnd_seed_lo = @addWithOverflow(rnd_seed_lo, rnd_seed_hi)[0];
+    return @mod(rnd_seed_hi, @as(i64, @intFromFloat(max)));
+}
+
+fn rnd(max: p8num) p8num {
+    const n: i64 = pico8_random(max);
+    return @floatFromInt(n);
+}
+
 fn p8_sin(x: p8num) p8num {
     return -std.math.sin(x * 6.2831853071796); //https://pico-8.fandom.com/wiki/Math
 }
 
 fn p8_cos(x: p8num) p8num {
     return -p8_sin((x) + 0.25);
+}
+
+fn line(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
+    const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
+    _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
+
+    _ = sdl.SDL_RenderDrawLine(renderer, @intFromFloat(x1), @intFromFloat(y1), @intFromFloat(x2), @intFromFloat(y2));
 }
 
 fn rectfill(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
@@ -440,12 +463,6 @@ fn print(str: []const u8, x: p8num, y: p8num, col: p8num) void {
 
         x_var = x_var + 4;
     }
-}
-
-fn rnd(x: p8num) p8num {
-    // TODO
-    _ = x;
-    return 0;
 }
 
 ////////////////////////////////////////
@@ -514,6 +531,7 @@ fn title_screen() void {
     start_game_flash = 0;
     music(40, 0, 7);
     load_room(7, 3);
+    //load_room(5, 2);
 }
 
 fn begin_game() void {
@@ -537,15 +555,16 @@ fn is_title() bool {
 // effects //
 /////////////
 
-const DeadParticle = struct {
+const Particle = struct {
     active: bool,
     x: p8num,
     y: p8num,
-    t: p8num,
+    t: p8num = 0,
+    h: p8num = 0,
     spd: P8Point,
 };
 
-var dead_particles: [8]DeadParticle = undefined;
+var dead_particles: [8]Particle = undefined;
 
 // player entity //
 ///////////////////
@@ -1356,7 +1375,8 @@ const Message = struct {
 const BigChest = struct {
     state: p8num,
     timer: p8num,
-    // TODO particles
+    particle_count: p8num,
+    particles: [50]Particle,
 
     fn init(self: *BigChest, common: *ObjectCommon) void {
         self.state = 0;
@@ -1377,7 +1397,10 @@ const BigChest = struct {
                     // TODO init_object(EntityType.smoke,common.x,common.y);
                     // TODO init_object(EntityType.smoke,common.x+8,common.y);
                     self.timer = 60;
-                    // TODO this.particles={};
+                    self.particle_count = 0;
+                    for (&self.particles) |*p| {
+                        p.active = false;
+                    }
                 }
             }
             spr(96, common.x, common.y, 1, 1, false, false);
@@ -1386,26 +1409,31 @@ const BigChest = struct {
             self.timer -= 1;
             shake = 5;
             flash_bg = true;
-            if (self.timer <= 45) { // TODO and count(this.particles)<50 then
-                // add(this.particles,{
-                // 	x=1+rnd(14),
-                // 	y=0,
-                // 	h=32+rnd(32),
-                // 	spd=8+rnd(8)
-                // })
+            if (self.timer <= 45 and self.particle_count < 50) {
+                self.particles[@intFromFloat(self.particle_count)] = Particle{
+                    .active = true,
+                    .x = 1 + rnd(14),
+                    .y = 0,
+                    .h = 32 + rnd(32),
+                    .spd = P8Point{
+                        .x = 0,
+                        .y = 8 + rnd(8),
+                    },
+                };
+                self.particle_count += 1;
             }
             if (self.timer < 0) {
                 self.state = 2;
-                // TODO self.particles={};
+                self.particle_count = 0;
                 flash_bg = false;
                 new_bg = true;
                 init_object(EntityType.orb, common.x + 4, common.y + 4);
                 pause_player = false;
             }
-            // foreach(common.particles,function(p)
-            // 	p.y+=p.spd
-            // 	line(common.x+p.x,common.y+8-p.y,common.x+p.x,min(common.y+8-p.y+p.h,common.y+8),7)
-            // end)
+            for (&self.particles) |*p| {
+                p.y += p.spd.y;
+                line(common.x + p.x, common.y + 8 - p.y, common.x + p.x, @min(common.y + 8 - p.y + p.h, common.y + 8), 7);
+            }
         }
         spr(112, common.x, common.y + 8, 1, 1, false, false);
         spr(113, common.x + 8, common.y + 8, 1, 1, false, false);
