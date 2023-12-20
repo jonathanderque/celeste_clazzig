@@ -496,6 +496,9 @@ fn _init() void {
     for (&objects) |*obj| {
         obj.common.active = false;
     }
+    for (&dead_particles) |*particle| {
+        particle.active = false;
+    }
     title_screen();
 }
 
@@ -533,6 +536,16 @@ fn is_title() bool {
 
 // effects //
 /////////////
+
+const DeadParticle = struct {
+    active: bool,
+    x: p8num,
+    y: p8num,
+    t: p8num,
+    spd: P8Point,
+};
+
+var dead_particles: [8]DeadParticle = undefined;
 
 // player entity //
 ///////////////////
@@ -2037,15 +2050,18 @@ fn _draw() void {
     // 		p.y=rnd(128)
     // 	end
     // end)
-    //
-    // -- dead particles
-    // foreach(dead_particles, function(p)
-    // 	p.x += p.spd.x
-    // 	p.y += p.spd.y
-    // 	p.t -=1
-    // 	if p.t <= 0 then del(dead_particles,p) end
-    // 	rectfill(p.x-p.t/5,p.y-p.t/5,p.x+p.t/5,p.y+p.t/5,14+p.t%2)
-    // end)
+
+    for (&dead_particles) |*p| {
+        if (p.active) {
+            p.x += p.spd.x;
+            p.y += p.spd.y;
+            p.t -= 1;
+            if (p.t <= 0) {
+                p.active = false;
+            }
+            rectfill(p.x - p.t / 5, p.y - p.t / 5, p.x + p.t / 5, p.y + p.t / 5, 14 + @mod(p.t, 2));
+        }
+    }
 
     // draw outside of the screen for screenshake
     rectfill(-5, -5, -1, 133, 0);
@@ -2152,20 +2168,19 @@ fn kill_player(player: *Player, common: *ObjectCommon) void {
     deaths += 1;
     shake = 10;
     destroy_object(common);
-    // TODO
-    // dead_particles={};
-    // 	for dir=0,7 do
-    // 		local angle=(dir/8)
-    // 		add(dead_particles,{
-    // 			x=obj.x+4,
-    // 			y=obj.y+4,
-    // 			t=10,
-    // 			spd={
-    // 				x=p8_sin(angle)*3,
-    // 				y=p8_cos(angle)*3
-    // 			}
-    // 		})
-    // }
+    var dir: p8num = 0;
+    for (&dead_particles) |*p| {
+        const angle = (dir / 8);
+        p.active = true;
+        p.x = common.x + 4;
+        p.y = common.y + 4;
+        p.t = 10;
+        p.spd = P8Point{
+            .x = p8_sin(angle) * 3,
+            .y = p8_cos(angle) * 3,
+        };
+        dir += 1;
+    }
     restart_room();
 }
 
