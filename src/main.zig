@@ -412,8 +412,8 @@ fn rectfill(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
     // const h = @max(y1, y2) - y;
     const x = x1;
     const y = y1;
-    const w = x2 - x1;
-    const h = y2 - y1;
+    const w = x2 - x1 + 1;
+    const h = y2 - y1 + 1;
     var rect: sdl.SDL_Rect = undefined;
     rect.x = @intFromFloat(x);
     rect.y = @intFromFloat(y);
