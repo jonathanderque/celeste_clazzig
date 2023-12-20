@@ -383,8 +383,8 @@ fn pico8_random(max: p8num) i64 { //decomp'd pico-8
 }
 
 fn rnd(max: p8num) p8num {
-    const n: i64 = pico8_random(max);
-    return @floatFromInt(n);
+    const n: i64 = pico8_random(10000 * max);
+    return @as(p8num, @floatFromInt(n)) / 10000;
 }
 
 fn p8_sin(x: p8num) p8num {
