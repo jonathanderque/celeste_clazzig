@@ -513,6 +513,12 @@ fn _init() void {
     for (&objects) |*obj| {
         obj.common.active = false;
     }
+    for (&clouds) |*c| {
+        c.x = rnd(128);
+        c.y = rnd(128);
+        c.spd = 1 + rnd(4);
+        c.w = 32 + rnd(32);
+    }
     for (&dead_particles) |*particle| {
         particle.active = false;
     }
@@ -563,6 +569,15 @@ fn is_title() bool {
 
 // effects //
 /////////////
+
+const Cloud = struct {
+    x: p8num,
+    y: p8num,
+    w: p8num,
+    spd: p8num,
+};
+
+var clouds: [17]Cloud = undefined;
 
 const Particle = struct {
     active: bool,
@@ -1469,7 +1484,7 @@ const Orb = struct {
         _ = self;
         common.spd.y = -4;
         common.solids = false;
-        // TODO this.particles={}
+        // unused this.particles={}
     }
     fn draw(self: *Orb, common: *ObjectCommon) void {
         _ = self;
@@ -2057,14 +2072,14 @@ fn _draw() void {
 
     // clouds
     if (!is_title()) {
-        // foreach(clouds, function(c)
-        // 	c.x += c.spd
-        // 	rectfill(c.x,c.y,c.x+c.w,c.y+4+(1-c.w/64)*12,new_bg~=nil and 14 or 1)
-        // 	if c.x > 128 then
-        // 		c.x = -c.w
-        // 		c.y=rnd(128-8)
-        // 	end
-        // end)
+        for (&clouds) |*c| {
+            c.x += c.spd;
+            rectfill(c.x, c.y, c.x + c.w, c.y + 4 + (1 - c.w / 64) * 12, if (new_bg) 14 else 1);
+            if (c.x > 128) {
+                c.x = -c.w;
+                c.y = rnd(128 - 8);
+            }
+        }
     }
 
     // draw bg terrain
