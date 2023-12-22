@@ -312,7 +312,7 @@ fn mget(tx: p8num, ty: p8num) p8tile {
     return @intCast(tilemap[idx]);
 }
 
-fn spr(sprite: isize, x: p8num, y: p8num, w: p8num, h: p8num, flip_x: bool, flip_y: bool) void {
+fn spr(sprite: p8num, x: p8num, y: p8num, w: p8num, h: p8num, flip_x: bool, flip_y: bool) void {
     _ = w;
     _ = h;
     _ = flip_y;
@@ -321,9 +321,9 @@ fn spr(sprite: isize, x: p8num, y: p8num, w: p8num, h: p8num, flip_x: bool, flip
 
     if (sprite >= 0) {
         var src_rect: sdl.SDL_Rect = undefined;
-        src_rect.x = @intCast(8 * @mod(sprite, 16));
+        src_rect.x = @intCast(8 * @as(c_int, @intFromFloat(@mod(sprite, 16))));
 
-        src_rect.y = @intCast(8 * @divTrunc(sprite, 16));
+        src_rect.y = @intCast(8 * @as(c_int, @intFromFloat(@divTrunc(sprite, 16))));
         src_rect.w = @intCast(8);
         src_rect.h = @intCast(8);
 
@@ -640,7 +640,7 @@ const Player = struct {
 
         // smoke particles
         if (on_ground and !self.was_on_ground) {
-            // TODO init_object(smoke,this.x,this.y+4)
+            init_object(EntityType.smoke, common.x, common.y + 4);
         }
 
         const jump = btn(k_jump) and !self.p_jump;
@@ -666,7 +666,7 @@ const Player = struct {
 
         self.dash_effect_time -= 1;
         if (self.dash_time > 0) {
-            //init_object(OBJ_SMOKE, this->x,this->y);
+            init_object(EntityType.smoke, common.x, common.y);
             self.dash_time -= 1;
             common.spd.x = appr(common.spd.x, self.dash_target.x, self.dash_accel.x);
             common.spd.y = appr(common.spd.y, self.dash_target.y, self.dash_accel.y);
@@ -709,9 +709,9 @@ const Player = struct {
             // wall slide
             if (input != 0 and common.is_solid(input, 0) and !common.is_ice(input, 0)) {
                 maxfall = 0.4;
-                // if (P8rnd(10)<2) {
-                // 	init_object(OBJ_SMOKE,this->x+input*6,this->y);
-                // }
+                if (rnd(10) < 2) {
+                    init_object(EntityType.smoke, common.x + input * 6, common.y);
+                }
             }
 
             if (!on_ground) {
@@ -726,7 +726,7 @@ const Player = struct {
                     self.jbuffer = 0;
                     self.grace = 0;
                     common.spd.y = -2;
-                    // TODO init_object(OBJ_SMOKE,this->x,this->y+4);
+                    init_object(EntityType.smoke, common.x, common.y + 4);
                 } else {
                     // wall jump
                     var wall_dir: p8num = if (common.is_solid(3, 0)) 1 else 0;
@@ -737,7 +737,7 @@ const Player = struct {
                         common.spd.y = -2;
                         common.spd.x = -wall_dir * (maxrun + 1);
                         if (!common.is_ice(wall_dir * 3, 0)) {
-                            // init_object(OBJ_SMOKE,this->x+wall_dir*6,this->y);
+                            init_object(EntityType.smoke, common.x + wall_dir * 6, common.y);
                         }
                     }
                 }
@@ -748,7 +748,7 @@ const Player = struct {
             const d_half: p8num = d_full * 0.70710678118;
 
             if (self.djump > 0 and dash) {
-                // TODO init_object(OBJ_SMOKE,this->x,this->y);
+                init_object(EntityType.smoke, common.x, common.y);
                 self.djump -= 1;
                 self.dash_time = 4;
                 has_dashed = true;
@@ -791,7 +791,7 @@ const Player = struct {
                 }
             } else if (dash and self.djump <= 0) {
                 psfx(9);
-                // TODO init_object(OBJ_SMOKE,this->x,this->y);
+                init_object(EntityType.smoke, common.x, common.y);
             }
             self.spr_off += 0.25;
             if (!on_ground) {
@@ -807,7 +807,7 @@ const Player = struct {
             } else if ((common.spd.x == 0) or (!btn(k_left) and !btn(k_right))) {
                 common.spr = 1;
             } else {
-                common.spr = 1 + @as(isize, @intFromFloat(@mod(self.spr_off, 4)));
+                common.spr = 1 + @mod(self.spr_off, 4);
             }
 
             // next level
@@ -929,7 +929,7 @@ const PlayerSpawn = struct {
                 self.state = 2;
                 self.delay = 5;
                 shake = 5;
-                // TODO init_object(smoke,this.x,this.y+4)
+                init_object(EntityType.smoke, common.x, common.y + 4);
                 sfx(5);
             }
         } else if (self.state == 2) { // landing
@@ -978,7 +978,7 @@ const Spring = struct {
                     hit.common.spd.y = -3;
                     hit.specific.player.djump = max_djump;
                     self.delay = 10;
-                    // init_object(smoke,this.x,this.y);
+                    init_object(EntityType.smoke, common.x, common.y);
 
                     // breakable below us
                     var below_opt = common.collide(EntityType.fall_floor, 0, 1);
@@ -1030,7 +1030,7 @@ const Balloon = struct {
             if (hit_opt) |hit| {
                 if (hit.specific.player.djump < max_djump) {
                     psfx(6);
-                    // TODO init_object(EntityType.smoke,common.x,common.y);
+                    init_object(EntityType.smoke, common.x, common.y);
                     hit.specific.player.djump = max_djump;
                     common.spr = 0;
                     self.timer = 60;
@@ -1040,13 +1040,13 @@ const Balloon = struct {
             self.timer = self.timer - 1;
         } else {
             psfx(7);
-            // TODO init_object(EntityType.smoke,common.x,common.y);
+            init_object(EntityType.smoke, common.x, common.y);
             common.spr = 22;
         }
     }
     fn draw(self: *Balloon, common: *ObjectCommon) void {
         if (common.spr == 22) {
-            spr(@intFromFloat(13 + @mod(self.offset * 8, 3)), common.x, common.y + 6, 1, 1, false, false);
+            spr(13 + @mod(self.offset * 8, 3), common.x, common.y + 6, 1, 1, false, false);
             spr(common.spr, common.x, common.y, 1, 1, false, false);
         }
     }
@@ -1080,7 +1080,7 @@ const FallFloor = struct {
                 psfx(7);
                 self.state = 0;
                 common.collideable = true;
-                // TODO init_object(EntityType.smoke,common.x,common.y);
+                init_object(EntityType.smoke, common.x, common.y);
             }
         }
     }
@@ -1090,7 +1090,7 @@ const FallFloor = struct {
             if (self.state != 1) {
                 spr(23, common.x, common.y, 1, 1, false, false);
             } else {
-                spr(@intFromFloat(23 + (15 - self.delay) / 5), common.x, common.y, 1, 1, false, false);
+                spr(23 + (15 - self.delay) / 5, common.x, common.y, 1, 1, false, false);
             }
         }
     }
@@ -1101,7 +1101,7 @@ fn break_fall_floor(self: *FallFloor, common: *ObjectCommon) void {
         psfx(15);
         self.state = 1;
         self.delay = 15; // how long until it falls
-        // TODO init_object(EntityType.smoke,common.x,common.y);
+        init_object(EntityType.smoke, common.x, common.y);
         var hit_opt = common.collide(EntityType.spring, 0, -1);
         if (hit_opt) |hit| {
             break_spring(&hit.specific.spring);
@@ -1109,15 +1109,24 @@ fn break_fall_floor(self: *FallFloor, common: *ObjectCommon) void {
     }
 }
 
-// TODO
 const Smoke = struct {
     fn init(self: *Smoke, common: *ObjectCommon) void {
         _ = self;
-        _ = common;
+        common.spr = 29;
+        common.spd.y = -0.1;
+        common.spd.x = 0.3 + rnd(0.2);
+        common.x += -1 + rnd(2);
+        common.y += -1 + rnd(2);
+        common.flip_x = maybe();
+        common.flip_y = maybe();
+        common.solids = false;
     }
     fn update(self: *Smoke, common: *ObjectCommon) void {
         _ = self;
-        _ = common;
+        common.spr += 0.2;
+        if (common.spr >= 32) {
+            destroy_object(common);
+        }
     }
 };
 
@@ -1208,9 +1217,9 @@ const FlyFruit = struct {
         } else {
             off = @mod(off + 0.25, 3);
         }
-        spr(@intFromFloat(45 + off), common.x - 6, common.y - 2, 1, 1, true, false);
+        spr(45 + off, common.x - 6, common.y - 2, 1, 1, true, false);
         spr(common.spr, common.x, common.y, 1, 1, false, false);
-        spr(@intFromFloat(45 + off), common.x + 6, common.y - 2, 1, 1, false, false);
+        spr(45 + off, common.x + 6, common.y - 2, 1, 1, false, false);
     }
 };
 
@@ -1252,10 +1261,10 @@ const FakeWall = struct {
                 sfx_timer = 20;
                 sfx(16);
                 destroy_object(common);
-                // init_object(smoke,this.x,this.y)
-                // init_object(smoke,this.x+8,this.y)
-                // init_object(smoke,this.x,this.y+8)
-                // init_object(smoke,this.x+8,this.y+8)
+                init_object(EntityType.smoke, common.x, common.y);
+                init_object(EntityType.smoke, common.x + 8, common.y);
+                init_object(EntityType.smoke, common.x, common.y + 8);
+                init_object(EntityType.smoke, common.x + 8, common.y + 8);
                 init_object(EntityType.fruit, common.x + 4, common.y + 4);
                 return; //
             }
@@ -1278,7 +1287,7 @@ const Key = struct {
     fn update(self: *Key, common: *ObjectCommon) void {
         _ = self;
         const was = common.spr;
-        common.spr = 9 + @as(isize, @intFromFloat((p8_sin(frames / 30) + 0.5))) * 1;
+        common.spr = 9 + (p8_sin(frames / 30) + 0.5) * 1;
         const is = common.spr;
         if (is == 10 and is != was) {
             common.flip_x = !common.flip_x;
@@ -1409,8 +1418,8 @@ const BigChest = struct {
                     hit.common.spd.x = 0;
                     hit.common.spd.y = 0;
                     self.state = 1;
-                    // TODO init_object(EntityType.smoke,common.x,common.y);
-                    // TODO init_object(EntityType.smoke,common.x+8,common.y);
+                    init_object(EntityType.smoke, common.x, common.y);
+                    init_object(EntityType.smoke, common.x + 8, common.y);
                     self.timer = 60;
                     self.particle_count = 0;
                     for (&self.particles) |*p| {
@@ -1504,7 +1513,7 @@ const Flag = struct {
         }
     }
     fn draw(self: *Flag, common: *ObjectCommon) void {
-        common.spr = @intFromFloat(118 + @mod((frames / 5), 3));
+        common.spr = 118 + @mod((frames / 5), 3);
         spr(common.spr, common.x, common.y, 1, 1, false, false);
         if (self.show) {
             var str: [20]u8 = undefined;
@@ -1622,7 +1631,7 @@ const ObjectCommon = struct {
     hitbox: P8Rect,
     spd: P8Point,
     rem: P8Point,
-    spr: isize,
+    spr: p8num,
     flip_x: bool,
     flip_y: bool,
     solids: bool,
@@ -1636,7 +1645,7 @@ const ObjectCommon = struct {
         self.hitbox = P8Rect{ .x = 0, .y = 0, .w = 8, .h = 8 };
         self.spd.x = 0;
         self.spd.y = 0;
-        self.spr = @intCast(@intFromEnum(entity_type));
+        self.spr = @floatFromInt(@intFromEnum(entity_type));
         self.flip_x = false;
         self.flip_y = false;
         self.solids = true;
@@ -2272,7 +2281,9 @@ fn update_object(object: *Object) void {
             EntityType.player => |*p| {
                 p.update(&object.common);
             },
-            EntityType.smoke => |_| {},
+            EntityType.smoke => |*s| {
+                s.update(&object.common);
+            },
             EntityType.spring => |*s| {
                 s.update(&object.common);
             },
@@ -2316,6 +2327,10 @@ fn tile_flag_at(x: p8num, y: p8num, w: p8num, h: p8num, flag: p8num) bool {
         }
     }
     return false;
+}
+
+fn maybe() bool {
+    return rnd(1) < 0.5;
 }
 
 fn solid_at(x: p8num, y: p8num, w: p8num, h: p8num) bool {
