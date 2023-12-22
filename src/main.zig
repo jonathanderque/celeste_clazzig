@@ -626,11 +626,13 @@ const Player = struct {
         // spikes collide
         if (spikes_at(common.x + common.hitbox.x, common.y + common.hitbox.y, common.hitbox.w, common.hitbox.h, common.spd.x, common.spd.y)) {
             kill_player(self, common);
+            return;
         }
 
         // bottom death
         if (common.y > 128) {
             kill_player(self, common);
+            return;
         }
 
         const on_ground = common.is_solid(0, 1);
