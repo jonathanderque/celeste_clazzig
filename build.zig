@@ -15,7 +15,27 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const exe = b.addExecutable(.{
+    const cart_extractor = b.addExecutable(.{
+        .name = "cart_extractor",
+        // In this case the main source file is merely a path, however, in more
+        // complicated build scripts, this could be a generated file.
+        .root_source_file = .{ .path = "src/cart_extractor/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    cart_extractor.linkLibC();
+
+    cart_extractor.addIncludePath(.{ .path = "src/cart_extractor/" });
+    cart_extractor.addCSourceFile(.{
+        .file = .{ .path = "src/cart_extractor/stb_image.c" },
+        .flags = &[_][]const u8{"-std=c99"},
+        //.flags = &[_][]const u8{},
+    });
+
+    b.installArtifact(cart_extractor);
+    const extract_cart = b.addRunArtifact(cart_extractor);
+
+    const game = b.addExecutable(.{
         .name = "celeste_clazzig",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
@@ -24,17 +44,19 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-    exe.linkSystemLibrary("SDL2");
+    game.linkSystemLibrary("SDL2");
+
+    game.step.dependOn(&extract_cart.step);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
-    b.installArtifact(exe);
+    b.installArtifact(game);
 
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
-    const run_cmd = b.addRunArtifact(exe);
+    const run_cmd = b.addRunArtifact(game);
 
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.

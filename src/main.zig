@@ -7,12 +7,7 @@ const Window = sdl.SDL_Window;
 const Renderer = sdl.SDL_Renderer;
 const Texture = sdl.SDL_Texture;
 
-//const map_data = @embedFile("celeste_map.txt");
-const celeste_map = @import("celeste_map.zig");
-const tilemap = celeste_map.map;
-const tilemap_flags = celeste_map.tile_flags;
-const celeste_gfx = @import("celeste_gfx.zig");
-const gfx = celeste_gfx.celeste_gfx;
+const cart_data = @import("generated/celeste.zig");
 const font = @import("font.zig").font;
 
 const base_palette = [_]sdl.SDL_Color{
@@ -65,13 +60,13 @@ fn load_texture(r: *Renderer, spritesheet: []const u8, width: usize, height: usi
         const c1 = palette[nibble1];
         const c2 = palette[nibble2];
 
-        if (nibble1 > 0) {
-            _ = sdl.SDL_SetRenderDrawColor(surface_renderer, c1.r, c1.g, c1.b, c1.a);
+        if (nibble2 > 0) {
+            _ = sdl.SDL_SetRenderDrawColor(surface_renderer, c2.r, c2.g, c2.b, c2.a);
             _ = sdl.SDL_RenderDrawPoint(surface_renderer, @intCast(x), @intCast(y));
         }
         x += 1;
-        if (nibble2 > 0) {
-            _ = sdl.SDL_SetRenderDrawColor(surface_renderer, c2.r, c2.g, c2.b, c2.a);
+        if (nibble1 > 0) {
+            _ = sdl.SDL_SetRenderDrawColor(surface_renderer, c1.r, c1.g, c1.b, c1.a);
             _ = sdl.SDL_RenderDrawPoint(surface_renderer, @intCast(x), @intCast(y));
         }
         x += 1;
@@ -104,7 +99,7 @@ fn reload_textures(r: *Renderer) void {
     if (should_reload_gfx_texture) {
         // reload_textures assumes the texture was already loaded; free the previous texture to avoid leaks
         sdl.SDL_DestroyTexture(gfx_texture);
-        if (load_texture(r, &gfx, 128, 128)) |texture| {
+        if (load_texture(r, cart_data.gfx[0..], 128, 128)) |texture| {
             gfx_texture = texture;
         } else {
             sdl.SDL_Log("Unable to create texture from surface: %s", sdl.SDL_GetError());
@@ -149,7 +144,7 @@ pub fn main() !void {
     };
     defer sdl.SDL_DestroyRenderer(renderer);
 
-    gfx_texture = load_texture(renderer, &gfx, 128, 128) orelse {
+    gfx_texture = load_texture(renderer, cart_data.gfx[0..], 128, 128) orelse {
         sdl.SDL_Log("Unable to create texture from surface: %s", sdl.SDL_GetError());
         return error.SDLInitializationFailed;
     };
@@ -304,12 +299,17 @@ fn pal(x: p8num, y: p8num) void {
 fn fget(tile: usize, flag: p8num) bool {
     const f: u5 = @intFromFloat(flag);
     const one: u32 = 1;
-    return tile < tilemap_flags.len and (tilemap_flags[tile] & (one << f)) != 0;
+    return tile < cart_data.gff.len and (cart_data.gff[tile] & (one << f)) != 0;
 }
 
 fn mget(tx: p8num, ty: p8num) p8tile {
-    const idx: usize = @intFromFloat(tx + ty * 128);
-    return @intCast(tilemap[idx]);
+    if (ty <= 31) {
+        const idx: usize = @intFromFloat(tx + ty * 128);
+        return @intCast(cart_data.map_low[idx]);
+    } else {
+        const idx: usize = @intFromFloat(tx + (ty - 32) * 128);
+        return @intCast(cart_data.map_high[idx]);
+    }
 }
 
 fn spr(sprite: p8num, x: p8num, y: p8num, w: p8num, h: p8num, flip_x: bool, flip_y: bool) void {
@@ -345,13 +345,15 @@ fn map(cel_x: p8num, cel_y: p8num, screen_x: p8num, screen_y: p8num, cel_w: p8nu
     reload_textures(renderer);
 
     var x: p8num = 0;
+    const map_len = cart_data.map_low.len + cart_data.map_high.len;
     while (x < cel_w) : (x += 1) {
         var y: p8num = 0;
         while (y < cel_h) : (y += 1) {
             const tile_index: usize = @intFromFloat(x + cel_x + (y + cel_y) * 128);
-            if (tile_index < tilemap.len) {
-                const tile: u8 = tilemap[@mod(tile_index, tilemap.len)];
-                if (mask == 0 or (mask == 4 and tilemap_flags[tile] == 4) or fget(tile, if (mask != 4) mask - 1 else mask)) {
+            if (tile_index < map_len) {
+                const idx = @mod(tile_index, map_len);
+                const tile: u8 = if (idx < cart_data.map_low.len) cart_data.map_low[idx] else cart_data.map_high[idx - cart_data.map_low.len];
+                if (mask == 0 or (mask == 4 and cart_data.gff[tile] == 4) or fget(tile, if (mask != 4) mask - 1 else mask)) {
                     var src_rect: sdl.SDL_Rect = undefined;
                     src_rect.x = @intCast(8 * @mod(tile, 16));
                     src_rect.y = @intCast(8 * @divTrunc(tile, 16));
