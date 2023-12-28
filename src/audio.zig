@@ -40,9 +40,35 @@ const Waveform = struct {
         return (@fabs(@mod(t2, 2) - 1) - 0.5 + (@fabs(@mod((t2 * 127 / 128), 2) - 1) - 0.5) / 2) - 0.25;
     }
 
-    fn noise(t: f64) f64 {
-        // TODO
-        return triangle(t);
+    var noise_seed_lo: i64 = 0;
+    var noise_seed_hi: i64 = 1;
+    fn noise_random() i64 { //decomp'd pico-8
+        noise_seed_hi = @addWithOverflow(((noise_seed_hi << 16) | (noise_seed_hi >> 16)), noise_seed_lo)[0];
+        noise_seed_lo = @addWithOverflow(noise_seed_lo, noise_seed_hi)[0];
+        return noise_seed_hi;
+    }
+
+    fn white_noise() f64 {
+        var r = @as(f64, @floatFromInt(noise_random())) / 100000.0;
+        r = @mod(r, 2);
+        return r - 1;
+    }
+
+    fn clamp(t: f64, low: f64, high: f64) f64 {
+        if (t < low) {
+            return low;
+        }
+        if (t > high) {
+            return high;
+        }
+        return t;
+    }
+
+    var brown: f64 = 0;
+    fn brown_noise() f64 {
+        const white = white_noise();
+        brown = (brown - (0.02 * white)) / 1.02;
+        return clamp(10 * brown, -1, 1);
     }
 };
 
@@ -100,17 +126,19 @@ pub const AudioChannel = struct {
             return 0;
         }
 
-        const s = switch (self.note_instrument) {
+        var s = switch (self.note_instrument) {
             0 => Waveform.triangle(self.waveform_position),
             1 => Waveform.tilted_saw(self.waveform_position),
             2 => Waveform.saw(self.waveform_position),
             3 => Waveform.square(self.waveform_position),
             4 => Waveform.pulse(self.waveform_position),
             5 => Waveform.organ(self.waveform_position),
-            6 => Waveform.noise(self.waveform_position),
+            6 => Waveform.brown_noise(),
             7 => Waveform.phaser(self.waveform_position),
             else => unreachable,
         };
+
+        s = s * self.note_volume / 7.0;
 
         self.waveform_position += self.note_freq * Waveform.period / SAMPLE_RATE;
         if (self.waveform_position >= Waveform.period) {
@@ -121,13 +149,13 @@ pub const AudioChannel = struct {
         if (self.current_note_duration >= note_duration * self.sfx_speed) {
             self.current_note_duration -= note_duration * self.sfx_speed;
             self.current_note_index += 1;
-            self.extract_note_params();
+            if (self.current_note_index >= 32) {
+                self.playing = false;
+            } else {
+                self.extract_note_params();
+            }
         }
 
-        if (self.current_note_index >= 32) {
-            self.playing = false;
-        }
-
-        return s * self.note_volume / 7.0;
+        return s;
     }
 };
