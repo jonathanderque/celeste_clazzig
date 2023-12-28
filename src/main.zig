@@ -9,6 +9,8 @@ const Texture = sdl.SDL_Texture;
 
 const cart_data = @import("generated/celeste.zig");
 const font = @import("font.zig").font;
+const audio = @import("audio.zig");
+const AudioChannel = audio.AudioChannel;
 
 const base_palette = [_]sdl.SDL_Color{
     sdl.SDL_Color{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xff }, //
@@ -122,10 +124,28 @@ fn sdl_first_controller() ?*sdl.SDL_GameController {
     return null;
 }
 
+var audio_channel = AudioChannel.init();
+
+pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len: c_int) callconv(.C) void {
+    _ = arg_userdata;
+    var stream = arg_stream;
+    var len = arg_len;
+    var snd: [*c]c_short = @as([*c]c_short, @ptrCast(@alignCast(stream)));
+    len = @divTrunc(len, @sizeOf(c_short));
+
+    var i: usize = 0;
+    while (i < len) : (i += 1) {
+        const volume: f64 = @as(f64, 0.5) / 7;
+        const sample = audio_channel.sample();
+
+        snd[i] = @as(c_short, @intFromFloat(sample * volume * 32767));
+    }
+}
+
 pub fn main() !void {
     const scale: u32 = 5;
     std.debug.print("let's go\n", .{});
-    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
+    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_AUDIO) != 0) {
         sdl.SDL_Log("Unable to initialize SDL: %s", sdl.SDL_GetError());
         return error.SDLInitializationFailed;
     }
@@ -164,6 +184,25 @@ pub fn main() !void {
 
     _ = sdl.SDL_InitSubSystem(sdl.SDL_INIT_GAMECONTROLLER);
     var controller: ?*sdl.SDL_GameController = sdl_first_controller();
+
+    var desired_audio_spec: sdl.SDL_AudioSpec = undefined;
+    var obtained_audio_spec: sdl.SDL_AudioSpec = undefined;
+
+    desired_audio_spec.freq = audio.SAMPLE_RATE;
+    desired_audio_spec.format = sdl.AUDIO_S16SYS;
+    desired_audio_spec.channels = 1;
+    desired_audio_spec.samples = 2048;
+    desired_audio_spec.userdata = null;
+    desired_audio_spec.callback = &sdl_audio_callback;
+
+    var audio_device = sdl.SDL_OpenAudioDevice(0, 0, &desired_audio_spec, &obtained_audio_spec, 0);
+    defer sdl.SDL_CloseAudioDevice(audio_device);
+    if (audio_device == 0) {
+        sdl.SDL_Log("Unable to initialize audio: %s", sdl.SDL_GetError());
+        return error.SDLInitializationFailed;
+    }
+    sdl.SDL_PauseAudioDevice(audio_device, 0);
+    std.debug.print("opened audio device {}\n", .{audio_device});
 
     var quit = false;
     var should_init = true;
@@ -264,9 +303,11 @@ fn btn(button: p8num) bool {
     return (button_state & (one << @as(u3, @intFromFloat(button))) != 0);
 }
 
-fn sfx(sfx_id: p8num) void {
-    // TODO
-    _ = sfx_id;
+fn sfx(id: p8num) void {
+    const sfx_id: usize = @intFromFloat(id);
+    const sfx_index = sfx_id * 68;
+    const sfx_data = cart_data.sfx[sfx_index .. sfx_index + 68];
+    audio_channel.play_sfx(sfx_data);
 }
 
 fn music(a: p8num, b: p8num, c: p8num) void {
