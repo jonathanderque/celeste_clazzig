@@ -277,7 +277,6 @@ pub fn main() !void {
         }
         _update();
 
-        _ = sdl.SDL_RenderClear(renderer);
         _draw();
         sdl.SDL_RenderPresent(renderer);
 
