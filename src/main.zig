@@ -85,7 +85,7 @@ fn load_texture(r: *Renderer, spritesheet: []const u8, width: usize, height: usi
 fn load_font_textures(r: *Renderer) void {
     var i: usize = 0;
     while (i < font_textures.len) : (i += 1) {
-        pal_reset();
+        P8.pal_reset();
         palette[0] = palette[@mod(1 + i, 16)];
         palette[7] = palette[@mod(i, 16)];
         if (load_texture(r, &font, 128, 85)) |texture| {
@@ -94,7 +94,7 @@ fn load_font_textures(r: *Renderer) void {
             sdl.SDL_Log("Unable to create texture from surface: %s", sdl.SDL_GetError());
         }
     }
-    pal_reset();
+    P8.pal_reset();
 }
 
 fn reload_textures(r: *Renderer) void {
@@ -177,7 +177,7 @@ pub fn main() !void {
             sdl.SDL_DestroyTexture(texture);
         }
     }
-    pal_reset();
+    P8.pal_reset();
     reload_textures(renderer);
 
     _ = sdl.SDL_RenderSetScale(renderer, scale, scale);
@@ -297,121 +297,209 @@ const P8Rect = struct {
     h: p8num,
 };
 
-fn btn(button: p8num) bool {
-    const one: u8 = 1;
-    return (button_state & (one << @as(u3, @intFromFloat(button))) != 0);
-}
-
-fn sfx(id: p8num) void {
-    const sfx_id: usize = @intFromFloat(id);
-    const sfx_index = sfx_id * 68;
-    const sfx_data = cart_data.sfx[sfx_index .. sfx_index + 68];
-    audio_channel.play_sfx(sfx_data);
-}
-
-fn music(a: p8num, b: p8num, c: p8num) void {
-    // TODO
-    _ = a;
-    _ = b;
-    _ = c;
-}
-
-fn camera(x: p8num, y: p8num) void {
-    // TODO
-    _ = x;
-    _ = y;
-}
-
-fn pal_reset() void {
-    var i: usize = 0;
-    while (i < palette.len) : (i += 1) {
-        palette[i] = base_palette[i];
+const P8 = struct {
+    fn btn(button: p8num) bool {
+        const one: u8 = 1;
+        return (button_state & (one << @as(u3, @intFromFloat(button))) != 0);
     }
-    should_reload_gfx_texture = true;
-}
 
-fn pal(x: p8num, y: p8num) void {
-    const xi: usize = @intFromFloat(x);
-    palette[xi] = base_palette[@intFromFloat(y)];
-    should_reload_gfx_texture = true;
-}
-
-fn fget(tile: usize, flag: p8num) bool {
-    const f: u5 = @intFromFloat(flag);
-    const one: u32 = 1;
-    return tile < cart_data.gff.len and (cart_data.gff[tile] & (one << f)) != 0;
-}
-
-fn mget(tx: p8num, ty: p8num) p8tile {
-    if (ty <= 31) {
-        const idx: usize = @intFromFloat(tx + ty * 128);
-        return @intCast(cart_data.map_low[idx]);
-    } else {
-        const idx: usize = @intFromFloat(tx + (ty - 32) * 128);
-        return @intCast(cart_data.map_high[idx]);
+    fn sfx(id: p8num) void {
+        const sfx_id: usize = @intFromFloat(id);
+        const sfx_index = sfx_id * 68;
+        const sfx_data = cart_data.sfx[sfx_index .. sfx_index + 68];
+        audio_channel.play_sfx(sfx_data);
     }
-}
 
-fn spr(sprite: p8num, x: p8num, y: p8num, w: p8num, h: p8num, flip_x: bool, flip_y: bool) void {
-    _ = w;
-    _ = h;
-    _ = flip_y;
+    fn music(a: p8num, b: p8num, c: p8num) void {
+        // TODO
+        _ = a;
+        _ = b;
+        _ = c;
+    }
 
-    reload_textures(renderer);
-
-    if (sprite >= 0) {
-        var src_rect: sdl.SDL_Rect = undefined;
-        src_rect.x = @intCast(8 * @as(c_int, @intFromFloat(@mod(sprite, 16))));
-
-        src_rect.y = @intCast(8 * @as(c_int, @intFromFloat(@divTrunc(sprite, 16))));
-        src_rect.w = @intCast(8);
-        src_rect.h = @intCast(8);
-
-        var dst_rect: sdl.SDL_Rect = undefined;
-        dst_rect.x = @intFromFloat(x); // TODO substract camera_x
-        dst_rect.y = @intFromFloat(y); // TODO substract camera_y
-        dst_rect.w = @intCast(8);
-        dst_rect.h = @intCast(8);
-
-        var flip: c_uint = 0;
-        if (flip_x) {
-            flip = flip | sdl.SDL_FLIP_HORIZONTAL;
+    // Lua function pal()
+    fn pal_reset() void {
+        var i: usize = 0;
+        while (i < palette.len) : (i += 1) {
+            palette[i] = base_palette[i];
         }
-        _ = sdl.SDL_RenderCopyEx(renderer, gfx_texture, &src_rect, &dst_rect, 0, 0, flip);
+        should_reload_gfx_texture = true;
     }
-}
 
-fn map(cel_x: p8num, cel_y: p8num, screen_x: p8num, screen_y: p8num, cel_w: p8num, cel_h: p8num, mask: p8num) void {
-    reload_textures(renderer);
+    fn pal(x: p8num, y: p8num) void {
+        const xi: usize = @intFromFloat(x);
+        palette[xi] = base_palette[@intFromFloat(y)];
+        should_reload_gfx_texture = true;
+    }
 
-    var x: p8num = 0;
-    const map_len = cart_data.map_low.len + cart_data.map_high.len;
-    while (x < cel_w) : (x += 1) {
-        var y: p8num = 0;
-        while (y < cel_h) : (y += 1) {
-            const tile_index: usize = @intFromFloat(x + cel_x + (y + cel_y) * 128);
-            if (tile_index < map_len) {
-                const idx = @mod(tile_index, map_len);
-                const tile: u8 = if (idx < cart_data.map_low.len) cart_data.map_low[idx] else cart_data.map_high[idx - cart_data.map_low.len];
-                if (mask == 0 or (mask == 4 and cart_data.gff[tile] == 4) or fget(tile, if (mask != 4) mask - 1 else mask)) {
-                    var src_rect: sdl.SDL_Rect = undefined;
-                    src_rect.x = @intCast(8 * @mod(tile, 16));
-                    src_rect.y = @intCast(8 * @divTrunc(tile, 16));
-                    src_rect.w = @intCast(8);
-                    src_rect.h = @intCast(8);
+    // sprites
+    fn spr(sprite: p8num, x: p8num, y: p8num, w: p8num, h: p8num, flip_x: bool, flip_y: bool) void {
+        _ = w;
+        _ = h;
+        _ = flip_y;
 
-                    var dst_rect: sdl.SDL_Rect = undefined;
-                    dst_rect.x = @intFromFloat(screen_x + x * 8); // TODO substract camera_x
-                    dst_rect.y = @intFromFloat(screen_y + y * 8); // TODO substract camera_y
-                    dst_rect.w = @intCast(8);
-                    dst_rect.h = @intCast(8);
+        reload_textures(renderer);
 
-                    _ = sdl.SDL_RenderCopy(renderer, gfx_texture, &src_rect, &dst_rect);
+        if (sprite >= 0) {
+            var src_rect: sdl.SDL_Rect = undefined;
+            src_rect.x = @intCast(8 * @as(c_int, @intFromFloat(@mod(sprite, 16))));
+
+            src_rect.y = @intCast(8 * @as(c_int, @intFromFloat(@divTrunc(sprite, 16))));
+            src_rect.w = @intCast(8);
+            src_rect.h = @intCast(8);
+
+            var dst_rect: sdl.SDL_Rect = undefined;
+            dst_rect.x = @intFromFloat(x); // TODO substract camera_x
+            dst_rect.y = @intFromFloat(y); // TODO substract camera_y
+            dst_rect.w = @intCast(8);
+            dst_rect.h = @intCast(8);
+
+            var flip: c_uint = 0;
+            if (flip_x) {
+                flip = flip | sdl.SDL_FLIP_HORIZONTAL;
+            }
+            _ = sdl.SDL_RenderCopyEx(renderer, gfx_texture, &src_rect, &dst_rect, 0, 0, flip);
+        }
+    }
+
+    // sprite flags
+    fn fget(tile: usize, flag: p8num) bool {
+        const f: u5 = @intFromFloat(flag);
+        const one: u32 = 1;
+        return tile < cart_data.gff.len and (cart_data.gff[tile] & (one << f)) != 0;
+    }
+
+    // shapes
+    fn line(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
+        const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
+        _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
+
+        _ = sdl.SDL_RenderDrawLine(renderer, @intFromFloat(x1), @intFromFloat(y1), @intFromFloat(x2), @intFromFloat(y2));
+    }
+
+    fn rectfill(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
+        const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
+        _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
+
+        const x = x1;
+        const y = y1;
+        const w = x2 - x1 + 1;
+        const h = y2 - y1 + 1;
+        var rect: sdl.SDL_Rect = undefined;
+        rect.x = @intFromFloat(x);
+        rect.y = @intFromFloat(y);
+        rect.w = @intFromFloat(w);
+        rect.h = @intFromFloat(h);
+        _ = sdl.SDL_RenderFillRect(renderer, &rect);
+    }
+
+    fn circfill(x: p8num, y: p8num, r: p8num, col: p8num) void {
+        const xi: c_int = @intFromFloat(x);
+        const yi: c_int = @intFromFloat(y);
+        const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
+        _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
+        if (r <= 1) {
+            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi, .w = 3, .h = 1 });
+            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi, .y = yi - 1, .w = 1, .h = 3 });
+        } else if (r <= 2) {
+            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 2, .y = yi - 1, .w = 5, .h = 3 });
+            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi - 2, .w = 3, .h = 5 });
+        } else if (r <= 3) {
+            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 3, .y = yi - 1, .w = 7, .h = 3 });
+            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi - 3, .w = 3, .h = 7 });
+            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 2, .y = yi - 2, .w = 5, .h = 5 });
+        }
+    }
+
+    fn print(str: []const u8, x: p8num, y: p8num, col: p8num) void {
+        var col_idx: usize = @intFromFloat(@mod(col, 16));
+        var x_var: c_int = @intFromFloat(x);
+
+        for (str) |cconst| {
+            var c = cconst;
+            c = c & 0x7F;
+
+            var src_rect: sdl.SDL_Rect = undefined;
+            src_rect.x = @intCast(8 * (c % 16));
+            src_rect.y = @intCast(8 * (c / 16));
+            src_rect.w = @intFromFloat(8);
+            src_rect.h = @intFromFloat(8);
+
+            var dst_rect: sdl.SDL_Rect = undefined;
+            dst_rect.x = x_var; // TODO substract camera_x
+            dst_rect.y = @intFromFloat(y); // TODO substract camera_y
+            dst_rect.w = @intCast(8);
+            dst_rect.h = @intCast(8);
+            _ = sdl.SDL_RenderCopy(renderer, font_textures[col_idx], &src_rect, &dst_rect);
+
+            x_var = x_var + 4;
+        }
+    }
+
+    // screen
+    fn camera(x: p8num, y: p8num) void {
+        // TODO
+        _ = x;
+        _ = y;
+    }
+
+    // map
+    fn map(cel_x: p8num, cel_y: p8num, screen_x: p8num, screen_y: p8num, cel_w: p8num, cel_h: p8num, mask: p8num) void {
+        reload_textures(renderer);
+
+        var x: p8num = 0;
+        const map_len = cart_data.map_low.len + cart_data.map_high.len;
+        while (x < cel_w) : (x += 1) {
+            var y: p8num = 0;
+            while (y < cel_h) : (y += 1) {
+                const tile_index: usize = @intFromFloat(x + cel_x + (y + cel_y) * 128);
+                if (tile_index < map_len) {
+                    const idx = @mod(tile_index, map_len);
+                    const tile: u8 = if (idx < cart_data.map_low.len) cart_data.map_low[idx] else cart_data.map_high[idx - cart_data.map_low.len];
+                    if (mask == 0 or (mask == 4 and cart_data.gff[tile] == 4) or fget(tile, if (mask != 4) mask - 1 else mask)) {
+                        var src_rect: sdl.SDL_Rect = undefined;
+                        src_rect.x = @intCast(8 * @mod(tile, 16));
+                        src_rect.y = @intCast(8 * @divTrunc(tile, 16));
+                        src_rect.w = @intCast(8);
+                        src_rect.h = @intCast(8);
+
+                        var dst_rect: sdl.SDL_Rect = undefined;
+                        dst_rect.x = @intFromFloat(screen_x + x * 8); // TODO substract camera_x
+                        dst_rect.y = @intFromFloat(screen_y + y * 8); // TODO substract camera_y
+                        dst_rect.w = @intCast(8);
+                        dst_rect.h = @intCast(8);
+
+                        _ = sdl.SDL_RenderCopy(renderer, gfx_texture, &src_rect, &dst_rect);
+                    }
                 }
             }
         }
     }
-}
+
+    fn mget(tx: p8num, ty: p8num) p8tile {
+        if (ty <= 31) {
+            const idx: usize = @intFromFloat(tx + ty * 128);
+            return @intCast(cart_data.map_low[idx]);
+        } else {
+            const idx: usize = @intFromFloat(tx + (ty - 32) * 128);
+            return @intCast(cart_data.map_high[idx]);
+        }
+    }
+
+    // math
+    fn rnd(max: p8num) p8num {
+        const n: i64 = pico8_random(10000 * max);
+        return @as(p8num, @floatFromInt(n)) / 10000;
+    }
+
+    fn sin(x: p8num) p8num {
+        return -std.math.sin(x * 6.2831853071796); //https://pico-8.fandom.com/wiki/Math
+    }
+
+    fn cos(x: p8num) p8num {
+        return -sin((x) + 0.25);
+    }
+};
 
 var rnd_seed_lo: i64 = 0;
 var rnd_seed_hi: i64 = 1;
@@ -422,89 +510,6 @@ fn pico8_random(max: p8num) i64 { //decomp'd pico-8
     rnd_seed_hi = @addWithOverflow(((rnd_seed_hi << 16) | (rnd_seed_hi >> 16)), rnd_seed_lo)[0];
     rnd_seed_lo = @addWithOverflow(rnd_seed_lo, rnd_seed_hi)[0];
     return @mod(rnd_seed_hi, @as(i64, @intFromFloat(max)));
-}
-
-fn rnd(max: p8num) p8num {
-    const n: i64 = pico8_random(10000 * max);
-    return @as(p8num, @floatFromInt(n)) / 10000;
-}
-
-fn p8_sin(x: p8num) p8num {
-    return -std.math.sin(x * 6.2831853071796); //https://pico-8.fandom.com/wiki/Math
-}
-
-fn p8_cos(x: p8num) p8num {
-    return -p8_sin((x) + 0.25);
-}
-
-fn line(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
-    const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
-    _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
-
-    _ = sdl.SDL_RenderDrawLine(renderer, @intFromFloat(x1), @intFromFloat(y1), @intFromFloat(x2), @intFromFloat(y2));
-}
-
-fn rectfill(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
-    const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
-    _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
-
-    // const x = @min(x1, x2);
-    // const y = @min(y1, y2);
-    // const w = @max(x1, x2) - x;
-    // const h = @max(y1, y2) - y;
-    const x = x1;
-    const y = y1;
-    const w = x2 - x1 + 1;
-    const h = y2 - y1 + 1;
-    var rect: sdl.SDL_Rect = undefined;
-    rect.x = @intFromFloat(x);
-    rect.y = @intFromFloat(y);
-    rect.w = @intFromFloat(w);
-    rect.h = @intFromFloat(h);
-    _ = sdl.SDL_RenderFillRect(renderer, &rect);
-}
-
-fn circfill(x: p8num, y: p8num, r: p8num, col: p8num) void {
-    const xi: c_int = @intFromFloat(x);
-    const yi: c_int = @intFromFloat(y);
-    const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
-    _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
-    if (r <= 1) {
-        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi, .w = 3, .h = 1 });
-        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi, .y = yi - 1, .w = 1, .h = 3 });
-    } else if (r <= 2) {
-        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 2, .y = yi - 1, .w = 5, .h = 3 });
-        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi - 2, .w = 3, .h = 5 });
-    } else if (r <= 3) {
-        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 3, .y = yi - 1, .w = 7, .h = 3 });
-        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi - 3, .w = 3, .h = 7 });
-        _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 2, .y = yi - 2, .w = 5, .h = 5 });
-    }
-}
-
-fn print(str: []const u8, x: p8num, y: p8num, col: p8num) void {
-    var col_idx: usize = @intFromFloat(@mod(col, 16));
-    var x_var: c_int = @intFromFloat(x);
-
-    for (str) |cconst| {
-        var c = cconst;
-        c = c & 0x7F;
-
-        var src_rect: sdl.SDL_Rect = undefined;
-        src_rect.x = @intCast(8 * (c % 16));
-        src_rect.y = @intCast(8 * (c / 16));
-        src_rect.w = @intFromFloat(8);
-        src_rect.h = @intFromFloat(8);
-
-        var dst_rect: sdl.SDL_Rect = undefined;
-        dst_rect.x = x_var; // TODO substract camera_x
-        dst_rect.y = @intFromFloat(y); // TODO substract camera_y
-        dst_rect.w = @intCast(8);
-        dst_rect.h = @intCast(8);
-        _ = sdl.SDL_RenderCopy(renderer, font_textures[col_idx], &src_rect, &dst_rect);
-
-        x_var = x_var + 4;
-    }
 }
 
 ////////////////////////////////////////
@@ -556,22 +561,22 @@ fn _init() void {
         obj.common.active = false;
     }
     for (&clouds) |*c| {
-        c.x = rnd(128);
-        c.y = rnd(128);
-        c.spd = 1 + rnd(4);
-        c.w = 32 + rnd(32);
+        c.x = P8.rnd(128);
+        c.y = P8.rnd(128);
+        c.spd = 1 + P8.rnd(4);
+        c.w = 32 + P8.rnd(32);
     }
     for (&dead_particles) |*particle| {
         particle.active = false;
     }
     for (&particles) |*p| {
         p.active = true;
-        p.x = rnd(128);
-        p.y = rnd(128);
-        p.s = 0 + @floor(rnd(5) / 4);
-        p.spd = P8Point{ .x = 0.25 + rnd(5), .y = 0 };
-        p.off = rnd(1);
-        p.c = 6 + @floor(0.5 + rnd(1));
+        p.x = P8.rnd(128);
+        p.y = P8.rnd(128);
+        p.s = 0 + @floor(P8.rnd(5) / 4);
+        p.spd = P8Point{ .x = 0.25 + P8.rnd(5), .y = 0 };
+        p.off = P8.rnd(1);
+        p.c = 6 + @floor(0.5 + P8.rnd(1));
     }
     title_screen();
 }
@@ -586,7 +591,7 @@ fn title_screen() void {
     max_djump = 1;
     start_game = false;
     start_game_flash = 0;
-    music(40, 0, 7);
+    P8.music(40, 0, 7);
     load_room(7, 3);
     //load_room(5, 2);
 }
@@ -597,7 +602,7 @@ fn begin_game() void {
     minutes = 0;
     music_timer = 0;
     start_game = false;
-    music(0, 0, 7);
+    P8.music(0, 0, 7);
     load_room(0, 0);
 }
 
@@ -674,9 +679,9 @@ const Player = struct {
         if (pause_player) return;
 
         var input: p8num = 0;
-        if (btn(k_left)) {
+        if (P8.btn(k_left)) {
             input = -1;
-        } else if (btn(k_right)) {
+        } else if (P8.btn(k_right)) {
             input = 1;
         }
 
@@ -700,16 +705,16 @@ const Player = struct {
             init_object(EntityType.smoke, common.x, common.y + 4);
         }
 
-        const jump = btn(k_jump) and !self.p_jump;
-        self.p_jump = btn(k_jump);
+        const jump = P8.btn(k_jump) and !self.p_jump;
+        self.p_jump = P8.btn(k_jump);
         if (jump) {
             self.jbuffer = 4;
         } else if (self.jbuffer > 0) {
             self.jbuffer -= 1;
         }
 
-        const dash = btn(k_dash) and !self.p_dash;
-        self.p_dash = btn(k_dash);
+        const dash = P8.btn(k_dash) and !self.p_dash;
+        self.p_dash = P8.btn(k_dash);
 
         if (on_ground) {
             self.grace = 6;
@@ -766,7 +771,7 @@ const Player = struct {
             // wall slide
             if (input != 0 and common.is_solid(input, 0) and !common.is_ice(input, 0)) {
                 maxfall = 0.4;
-                if (rnd(10) < 2) {
+                if (P8.rnd(10) < 2) {
                     init_object(EntityType.smoke, common.x + input * 6, common.y);
                 }
             }
@@ -810,8 +815,8 @@ const Player = struct {
                 self.dash_time = 4;
                 has_dashed = true;
                 self.dash_effect_time = 10;
-                var v_input: p8num = if (btn(k_down)) 1 else 0;
-                v_input = if (btn(k_up)) -1 else v_input;
+                var v_input: p8num = if (P8.btn(k_down)) 1 else 0;
+                v_input = if (P8.btn(k_up)) -1 else v_input;
                 if (input != 0) {
                     if (v_input != 0) {
                         common.spd.x = input * d_half;
@@ -857,11 +862,11 @@ const Player = struct {
                 } else {
                     common.spr = 3;
                 }
-            } else if (btn(k_down)) {
+            } else if (P8.btn(k_down)) {
                 common.spr = 6;
-            } else if (btn(k_up)) {
+            } else if (P8.btn(k_up)) {
                 common.spr = 7;
-            } else if ((common.spd.x == 0) or (!btn(k_left) and !btn(k_right))) {
+            } else if ((common.spd.x == 0) or (!P8.btn(k_left) and !P8.btn(k_right))) {
                 common.spr = 1;
             } else {
                 common.spr = 1 + @mod(self.spr_off, 4);
@@ -886,14 +891,14 @@ const Player = struct {
 
         set_hair_color(self.djump);
         draw_hair(&self.hair, common, if (common.flip_x) -1 else 1);
-        spr(common.spr, common.x, common.y, 1, 1, common.flip_x, common.flip_y);
+        P8.spr(common.spr, common.x, common.y, 1, 1, common.flip_x, common.flip_y);
         unset_hair_color();
     }
 };
 
 fn psfx(x: p8num) void {
     if (sfx_timer <= 0) {
-        sfx(x);
+        P8.sfx(x);
     }
 }
 
@@ -925,13 +930,13 @@ fn set_hair_color(djump: p8num) void {
             (7 + @floor(@mod(frames / 3, 2)) * 4)
         else
             12);
-    pal(8, col);
+    P8.pal(8, col);
 }
 
 fn draw_hair(hair: []Hair, common: *ObjectCommon, facing: p8num) void {
     var last_x: p8num = common.x + 4 - facing * 2;
     var last_y: p8num = common.y;
-    if (btn(k_down)) {
+    if (P8.btn(k_down)) {
         last_y += 4;
     } else {
         last_y += 3;
@@ -939,14 +944,14 @@ fn draw_hair(hair: []Hair, common: *ObjectCommon, facing: p8num) void {
     for (hair) |*h| {
         h.x += (last_x - h.x) / 1.5;
         h.y += (last_y + 0.5 - h.y) / 1.5;
-        circfill(h.x, h.y, h.size, 8);
+        P8.circfill(h.x, h.y, h.size, 8);
         last_x = h.x;
         last_y = h.y;
     }
 }
 
 fn unset_hair_color() void {
-    pal(8, 8);
+    P8.pal(8, 8);
 }
 
 const PlayerSpawn = struct {
@@ -956,7 +961,7 @@ const PlayerSpawn = struct {
     hair: [5]Hair,
 
     fn init(self: *PlayerSpawn, common: *ObjectCommon) void {
-        sfx(4);
+        P8.sfx(4);
         common.spr = 3;
         self.target.x = common.x;
         self.target.y = common.y;
@@ -987,7 +992,7 @@ const PlayerSpawn = struct {
                 self.delay = 5;
                 shake = 5;
                 init_object(EntityType.smoke, common.x, common.y + 4);
-                sfx(5);
+                P8.sfx(5);
             }
         } else if (self.state == 2) { // landing
             self.delay -= 1;
@@ -1002,7 +1007,7 @@ const PlayerSpawn = struct {
     fn draw(self: *PlayerSpawn, common: *ObjectCommon) void {
         set_hair_color(max_djump);
         draw_hair(&self.hair, common, 1);
-        spr(common.spr, common.x, common.y, 1, 1, common.flip_x, common.flip_y);
+        P8.spr(common.spr, common.x, common.y, 1, 1, common.flip_x, common.flip_y);
         unset_hair_color();
     }
 };
@@ -1074,7 +1079,7 @@ const Balloon = struct {
 
     //tile=22,
     fn init(self: *Balloon, common: *ObjectCommon) void {
-        self.offset = rnd(1);
+        self.offset = P8.rnd(1);
         self.start = common.y;
         self.timer = 0;
         common.hitbox = P8Rect{ .x = -1, .y = -1, .w = 10, .h = 10 };
@@ -1082,7 +1087,7 @@ const Balloon = struct {
     fn update(self: *Balloon, common: *ObjectCommon) void {
         if (common.spr == 22) {
             self.offset += 0.01;
-            common.y = self.start + p8_sin(self.offset) * 2;
+            common.y = self.start + P8.sin(self.offset) * 2;
             var hit_opt = common.collide(EntityType.player, 0, 0);
             if (hit_opt) |hit| {
                 if (hit.specific.player.djump < max_djump) {
@@ -1103,8 +1108,8 @@ const Balloon = struct {
     }
     fn draw(self: *Balloon, common: *ObjectCommon) void {
         if (common.spr == 22) {
-            spr(13 + @mod(self.offset * 8, 3), common.x, common.y + 6, 1, 1, false, false);
-            spr(common.spr, common.x, common.y, 1, 1, false, false);
+            P8.spr(13 + @mod(self.offset * 8, 3), common.x, common.y + 6, 1, 1, false, false);
+            P8.spr(common.spr, common.x, common.y, 1, 1, false, false);
         }
     }
 };
@@ -1145,9 +1150,9 @@ const FallFloor = struct {
     fn draw(self: *FallFloor, common: *ObjectCommon) void {
         if (self.state != 2) {
             if (self.state != 1) {
-                spr(23, common.x, common.y, 1, 1, false, false);
+                P8.spr(23, common.x, common.y, 1, 1, false, false);
             } else {
-                spr(23 + (15 - self.delay) / 5, common.x, common.y, 1, 1, false, false);
+                P8.spr(23 + (15 - self.delay) / 5, common.x, common.y, 1, 1, false, false);
             }
         }
     }
@@ -1171,9 +1176,9 @@ const Smoke = struct {
         _ = self;
         common.spr = 29;
         common.spd.y = -0.1;
-        common.spd.x = 0.3 + rnd(0.2);
-        common.x += -1 + rnd(2);
-        common.y += -1 + rnd(2);
+        common.spd.x = 0.3 + P8.rnd(0.2);
+        common.x += -1 + P8.rnd(2);
+        common.y += -1 + P8.rnd(2);
         common.flip_x = maybe();
         common.flip_y = maybe();
         common.solids = false;
@@ -1202,14 +1207,14 @@ const Fruit = struct {
         if (hit_opt) |hit| {
             hit.specific.player.djump = max_djump;
             sfx_timer = 20;
-            sfx(13);
+            P8.sfx(13);
             got_fruit[@intFromFloat(level_index())] = true;
             init_object(EntityType.life_up, common.x, common.y);
             destroy_object(common);
             return;
         }
         self.off += 1;
-        common.y = self.start + p8_sin(self.off / 40) * 2.5;
+        common.y = self.start + P8.sin(self.off / 40) * 2.5;
     }
 };
 
@@ -1235,7 +1240,7 @@ const FlyFruit = struct {
                 self.sfx_delay -= 1;
                 if (self.sfx_delay <= 0) {
                     sfx_timer = 20;
-                    sfx(14);
+                    P8.sfx(14);
                 }
             }
             common.spd.y = appr(common.spd.y, -3.5, 0.25);
@@ -1247,14 +1252,14 @@ const FlyFruit = struct {
                 self.fly = true;
             }
             self.step += 0.05;
-            common.spd.y = p8_sin(self.step) * 0.5;
+            common.spd.y = P8.sin(self.step) * 0.5;
         }
         // collect
         var hit_opt = common.collide(EntityType.player, 0, 0);
         if (hit_opt) |hit| {
             hit.specific.player.djump = max_djump;
             sfx_timer = 20;
-            sfx(13);
+            P8.sfx(13);
             got_fruit[@intFromFloat(level_index())] = true;
             init_object(EntityType.life_up, common.x, common.y);
             do_destroy = true;
@@ -1267,16 +1272,16 @@ const FlyFruit = struct {
     fn draw(self: *FlyFruit, common: *ObjectCommon) void {
         var off: p8num = 0;
         if (!self.fly) {
-            var dir = p8_sin(self.step);
+            var dir = P8.sin(self.step);
             if (dir < 0) {
                 off = 1 + @max(0, sign(common.y - self.start));
             }
         } else {
             off = @mod(off + 0.25, 3);
         }
-        spr(45 + off, common.x - 6, common.y - 2, 1, 1, true, false);
-        spr(common.spr, common.x, common.y, 1, 1, false, false);
-        spr(45 + off, common.x + 6, common.y - 2, 1, 1, false, false);
+        P8.spr(45 + off, common.x - 6, common.y - 2, 1, 1, true, false);
+        P8.spr(common.spr, common.x, common.y, 1, 1, false, false);
+        P8.spr(45 + off, common.x + 6, common.y - 2, 1, 1, false, false);
     }
 };
 
@@ -1301,7 +1306,7 @@ const LifeUp = struct {
     }
     fn draw(self: *LifeUp, common: *ObjectCommon) void {
         self.flash += 0.5;
-        print("1000", common.x - 2, common.y, 7 + @mod(self.flash, 2));
+        P8.print("1000", common.x - 2, common.y, 7 + @mod(self.flash, 2));
     }
 };
 
@@ -1316,7 +1321,7 @@ const FakeWall = struct {
                 hit.common.spd.y = -1.5;
                 hit.specific.player.dash_time = -1;
                 sfx_timer = 20;
-                sfx(16);
+                P8.sfx(16);
                 destroy_object(common);
                 init_object(EntityType.smoke, common.x, common.y);
                 init_object(EntityType.smoke, common.x + 8, common.y);
@@ -1331,10 +1336,10 @@ const FakeWall = struct {
 
     fn draw(self: *FakeWall, common: *ObjectCommon) void {
         _ = self;
-        spr(64, common.x, common.y, 1, 1, false, false);
-        spr(65, common.x + 8, common.y, 1, 1, false, false);
-        spr(80, common.x, common.y + 8, 1, 1, false, false);
-        spr(81, common.x + 8, common.y + 8, 1, 1, false, false);
+        P8.spr(64, common.x, common.y, 1, 1, false, false);
+        P8.spr(65, common.x + 8, common.y, 1, 1, false, false);
+        P8.spr(80, common.x, common.y + 8, 1, 1, false, false);
+        P8.spr(81, common.x + 8, common.y + 8, 1, 1, false, false);
     }
 };
 
@@ -1344,13 +1349,13 @@ const Key = struct {
     fn update(self: *Key, common: *ObjectCommon) void {
         _ = self;
         const was = common.spr;
-        common.spr = 9 + (p8_sin(frames / 30) + 0.5) * 1;
+        common.spr = 9 + (P8.sin(frames / 30) + 0.5) * 1;
         const is = common.spr;
         if (is == 10 and is != was) {
             common.flip_x = !common.flip_x;
         }
         if (common.check(EntityType.player, 0, 0)) {
-            sfx(23);
+            P8.sfx(23);
             sfx_timer = 10;
             destroy_object(common);
             has_key = true;
@@ -1372,10 +1377,10 @@ const Chest = struct {
     fn update(self: *Chest, common: *ObjectCommon) void {
         if (has_key) {
             self.timer -= 1;
-            common.x = self.start - 1 + rnd(3);
+            common.x = self.start - 1 + P8.rnd(3);
             if (self.timer <= 0) {
                 sfx_timer = 20;
-                sfx(16);
+                P8.sfx(16);
                 init_object(EntityType.fruit, common.x, common.y - 4);
                 destroy_object(common);
             }
@@ -1413,8 +1418,8 @@ const Platform = struct {
 
     fn draw(self: *Platform, common: *ObjectCommon) void {
         _ = self;
-        spr(11, common.x, common.y - 1, 1, 1, false, false);
-        spr(12, common.x + 8, common.y - 1, 1, 1, false, false);
+        P8.spr(11, common.x, common.y - 1, 1, 1, false, false);
+        P8.spr(12, common.x + 8, common.y - 1, 1, 1, false, false);
     }
 };
 
@@ -1431,15 +1436,15 @@ const Message = struct {
                 self.index += 0.5;
                 if (self.index >= self.last + 1) {
                     self.last += 1;
-                    sfx(35);
+                    P8.sfx(35);
                 }
             }
             self.off = P8Point{ .x = 8, .y = 96 };
             var i: p8num = 0;
             while (i < self.index) : (i += 1) {
                 if (self.text[@intFromFloat(i)] != '#') {
-                    rectfill(self.off.x - 2, self.off.y - 2, self.off.x + 7, self.off.y + 6, 7);
-                    print(self.text[@intFromFloat(i)..@intFromFloat(1 + i)], self.off.x, self.off.y, 0);
+                    P8.rectfill(self.off.x - 2, self.off.y - 2, self.off.x + 7, self.off.y + 6, 7);
+                    P8.print(self.text[@intFromFloat(i)..@intFromFloat(1 + i)], self.off.x, self.off.y, 0);
                     self.off.x += 5;
                 } else {
                     self.off.x = 8;
@@ -1469,8 +1474,8 @@ const BigChest = struct {
             var hit_opt = common.collide(EntityType.player, 0, 8);
             if (hit_opt) |hit| {
                 if (hit.common.is_solid(0, 1)) {
-                    music(-1, 500, 7);
-                    sfx(37);
+                    P8.music(-1, 500, 7);
+                    P8.sfx(37);
                     pause_player = true;
                     hit.common.spd.x = 0;
                     hit.common.spd.y = 0;
@@ -1484,8 +1489,8 @@ const BigChest = struct {
                     }
                 }
             }
-            spr(96, common.x, common.y, 1, 1, false, false);
-            spr(97, common.x + 8, common.y, 1, 1, false, false);
+            P8.spr(96, common.x, common.y, 1, 1, false, false);
+            P8.spr(97, common.x + 8, common.y, 1, 1, false, false);
         } else if (self.state == 1) {
             self.timer -= 1;
             shake = 5;
@@ -1493,12 +1498,12 @@ const BigChest = struct {
             if (self.timer <= 45 and self.particle_count < 50) {
                 self.particles[@intFromFloat(self.particle_count)] = Particle{
                     .active = true,
-                    .x = 1 + rnd(14),
+                    .x = 1 + P8.rnd(14),
                     .y = 0,
-                    .h = 32 + rnd(32),
+                    .h = 32 + P8.rnd(32),
                     .spd = P8Point{
                         .x = 0,
-                        .y = 8 + rnd(8),
+                        .y = 8 + P8.rnd(8),
                     },
                 };
                 self.particle_count += 1;
@@ -1513,11 +1518,11 @@ const BigChest = struct {
             }
             for (&self.particles) |*p| {
                 p.y += p.spd.y;
-                line(common.x + p.x, common.y + 8 - p.y, common.x + p.x, @min(common.y + 8 - p.y + p.h, common.y + 8), 7);
+                P8.line(common.x + p.x, common.y + 8 - p.y, common.x + p.x, @min(common.y + 8 - p.y + p.h, common.y + 8), 7);
             }
         }
-        spr(112, common.x, common.y + 8, 1, 1, false, false);
-        spr(113, common.x + 8, common.y + 8, 1, 1, false, false);
+        P8.spr(112, common.x, common.y + 8, 1, 1, false, false);
+        P8.spr(113, common.x + 8, common.y + 8, 1, 1, false, false);
     }
 };
 
@@ -1535,7 +1540,7 @@ const Orb = struct {
         if (hit_opt) |hit| {
             if (common.spd.y == 0) {
                 music_timer = 45;
-                sfx(51);
+                P8.sfx(51);
                 freeze = 10;
                 shake = 10;
                 destroy_object(common);
@@ -1545,11 +1550,11 @@ const Orb = struct {
             }
         }
 
-        spr(102, common.x, common.y, 1, 1, false, false);
+        P8.spr(102, common.x, common.y, 1, 1, false, false);
         const off: p8num = frames / 30;
         var i: p8num = 0;
         while (i <= 7) : (i += 1) {
-            circfill(common.x + 4 + p8_cos(off + i / 8) * 8, common.y + 4 + p8_sin(off + i / 8) * 8, 1, 7);
+            P8.circfill(common.x + 4 + P8.cos(off + i / 8) * 8, common.y + 4 + P8.sin(off + i / 8) * 8, 1, 7);
         }
     }
 };
@@ -1571,23 +1576,23 @@ const Flag = struct {
     }
     fn draw(self: *Flag, common: *ObjectCommon) void {
         common.spr = 118 + @mod((frames / 5), 3);
-        spr(common.spr, common.x, common.y, 1, 1, false, false);
+        P8.spr(common.spr, common.x, common.y, 1, 1, false, false);
         if (self.show) {
             var str: [20]u8 = undefined;
             @memset(&str, 0);
-            rectfill(32, 2, 96, 31, 0);
-            spr(26, 55, 6, 1, 1, false, false);
+            P8.rectfill(32, 2, 96, 31, 0);
+            P8.spr(26, 55, 6, 1, 1, false, false);
             _ = std.fmt.bufPrint(&str, "x {} ", .{@as(usize, @intFromFloat(self.score))}) catch {
                 return;
             };
-            print(&str, 64, 9, 7);
+            P8.print(&str, 64, 9, 7);
             draw_time(49, 16);
             _ = std.fmt.bufPrint(&str, "deaths {} ", .{@as(usize, @intFromFloat(deaths))}) catch {
                 return;
             };
-            print(&str, 48, 24, 7);
+            P8.print(&str, 48, 24, 7);
         } else if (common.check(EntityType.player, 0, 0)) {
-            sfx(55);
+            P8.sfx(55);
             sfx_timer = 30;
             self.show = true;
         }
@@ -1605,11 +1610,11 @@ const RoomTitle = struct {
         if (self.delay < -30) {
             destroy_object(common);
         } else if (self.delay < 0) {
-            rectfill(24, 58, 104, 70, 0);
+            P8.rectfill(24, 58, 104, 70, 0);
             if (room.x == 3 and room.y == 1) {
-                print("old site", 48, 62, 7);
+                P8.print("old site", 48, 62, 7);
             } else if (level_index() == 30) {
-                print("summit", 52, 62, 7);
+                P8.print("summit", 52, 62, 7);
             } else {
                 const level = (1 + level_index()) * 100;
                 var str: [16]u8 = undefined;
@@ -1618,7 +1623,7 @@ const RoomTitle = struct {
                     return;
                 };
                 const offset: p8num = if (level < 1000) 2 else 0;
-                print(&str, 52 + offset, 62, 7);
+                P8.print(&str, 52 + offset, 62, 7);
             }
             //print("//-",86,64-2,13)
 
@@ -1943,13 +1948,13 @@ fn restart_room() void {
 
 fn next_room() void {
     if (room.x == 2 and room.y == 1) {
-        music(30, 500, 7);
+        P8.music(30, 500, 7);
     } else if (room.x == 3 and room.y == 1) {
-        music(20, 500, 7);
+        P8.music(20, 500, 7);
     } else if (room.x == 4 and room.y == 2) {
-        music(30, 500, 7);
+        P8.music(30, 500, 7);
     } else if (room.x == 5 and room.y == 3) {
-        music(30, 500, 7);
+        P8.music(30, 500, 7);
     }
 
     if (room.x == 7) {
@@ -1977,7 +1982,7 @@ fn load_room(x: p8num, y: p8num) void {
     while (tx <= 15) : (tx += 1) {
         var ty: p8num = 0;
         while (ty <= 15) : (ty += 1) {
-            const tile = mget(room.x * 16 + tx, room.y * 16 + ty);
+            const tile = P8.mget(room.x * 16 + tx, room.y * 16 + ty);
             if (tile == 11) {
                 var p = create_object(EntityType.platform, tx * 8, ty * 8);
                 p.specific.platform.dir = -1;
@@ -2014,7 +2019,7 @@ fn _update() void {
     if (music_timer > 0) {
         music_timer -= 1;
         if (music_timer <= 0) {
-            music(10, 0, 7);
+            P8.music(10, 0, 7);
         }
     }
 
@@ -2031,9 +2036,9 @@ fn _update() void {
     // screenshake
     if (shake > 0) {
         shake -= 1;
-        camera(0, 0);
+        P8.camera(0, 0);
         if (shake > 0) {
-            camera(-2 + rnd(5), -2 + rnd(5));
+            P8.camera(-2 + P8.rnd(5), -2 + P8.rnd(5));
         }
     }
 
@@ -2053,11 +2058,11 @@ fn _update() void {
 
     // start game
     if (is_title()) {
-        if (!start_game and (btn(k_jump) or btn(k_dash))) {
-            music(-1, 0, 0);
+        if (!start_game and (P8.btn(k_jump) or P8.btn(k_dash))) {
+            P8.music(-1, 0, 0);
             start_game_flash = 50;
             start_game = true;
-            sfx(38);
+            P8.sfx(38);
         }
         if (start_game) {
             start_game_flash -= 1;
@@ -2077,7 +2082,7 @@ fn _draw() void {
     }
 
     // reset all palette values
-    pal_reset();
+    P8.pal_reset();
 
     // start game flash
     if (start_game) {
@@ -2094,12 +2099,12 @@ fn _draw() void {
             c = 0;
         }
         if (c < 10) {
-            pal(6, c);
-            pal(12, c);
-            pal(13, c);
-            pal(5, c);
-            pal(1, c);
-            pal(7, c);
+            P8.pal(6, c);
+            P8.pal(12, c);
+            P8.pal(13, c);
+            P8.pal(5, c);
+            P8.pal(1, c);
+            P8.pal(7, c);
         }
     }
 
@@ -2110,22 +2115,22 @@ fn _draw() void {
     } else if (new_bg) {
         bg_col = 2;
     }
-    rectfill(0, 0, 128, 128, bg_col);
+    P8.rectfill(0, 0, 128, 128, bg_col);
 
     // clouds
     if (!is_title()) {
         for (&clouds) |*c| {
             c.x += c.spd;
-            rectfill(c.x, c.y, c.x + c.w, c.y + 4 + (1 - c.w / 64) * 12, if (new_bg) 14 else 1);
+            P8.rectfill(c.x, c.y, c.x + c.w, c.y + 4 + (1 - c.w / 64) * 12, if (new_bg) 14 else 1);
             if (c.x > 128) {
                 c.x = -c.w;
-                c.y = rnd(128 - 8);
+                c.y = P8.rnd(128 - 8);
             }
         }
     }
 
     // draw bg terrain
-    map(room.x * 16, room.y * 16, 0, 0, 16, 16, 4);
+    P8.map(room.x * 16, room.y * 16, 0, 0, 16, 16, 4);
 
     // -- platforms/big chest
     for (&objects) |*o| {
@@ -2136,7 +2141,7 @@ fn _draw() void {
 
     // draw terrain
     const off: p8num = if (is_title()) -4 else 0;
-    map(room.x * 16, room.y * 16, off, 0, 16, 16, 2);
+    P8.map(room.x * 16, room.y * 16, off, 0, 16, 16, 2);
 
     // draw objects
     for (&objects) |*o| {
@@ -2146,17 +2151,17 @@ fn _draw() void {
     }
 
     // draw fg terrain
-    map(room.x * 16, room.y * 16, 0, 0, 16, 16, 8);
+    P8.map(room.x * 16, room.y * 16, 0, 0, 16, 16, 8);
 
     // -- particles
     for (&particles) |*p| {
         p.x += p.spd.x;
-        p.y += p8_sin(p.off);
+        p.y += P8.sin(p.off);
         p.off += @min(0.05, p.spd.x / 32);
-        rectfill(p.x, p.y, p.x + p.s, p.y + p.s, p.c);
+        P8.rectfill(p.x, p.y, p.x + p.s, p.y + p.s, p.c);
         if (p.x > 128 + 4) {
             p.x = -4;
-            p.y = rnd(128);
+            p.y = P8.rnd(128);
         }
     }
 
@@ -2168,21 +2173,21 @@ fn _draw() void {
             if (p.t <= 0) {
                 p.active = false;
             }
-            rectfill(p.x - p.t / 5, p.y - p.t / 5, p.x + p.t / 5, p.y + p.t / 5, 14 + @mod(p.t, 2));
+            P8.rectfill(p.x - p.t / 5, p.y - p.t / 5, p.x + p.t / 5, p.y + p.t / 5, 14 + @mod(p.t, 2));
         }
     }
 
     // draw outside of the screen for screenshake
-    rectfill(-5, -5, -1, 133, 0);
-    rectfill(-5, -5, 133, -1, 0);
-    rectfill(-5, 128, 133, 133, 0);
-    rectfill(128, -5, 133, 133, 0);
+    P8.rectfill(-5, -5, -1, 133, 0);
+    P8.rectfill(-5, -5, 133, -1, 0);
+    P8.rectfill(-5, 128, 133, 133, 0);
+    P8.rectfill(128, -5, 133, 133, 0);
 
     // credits
     if (is_title()) {
-        print("x+c", 58, 80, 5);
-        print("matt thorson", 42, 96, 5);
-        print("noel berry", 46, 102, 5);
+        P8.print("x+c", 58, 80, 5);
+        P8.print("matt thorson", 42, 96, 5);
+        P8.print("noel berry", 46, 102, 5);
     }
 
     if (level_index() == 30) {
@@ -2195,8 +2200,8 @@ fn _draw() void {
         }
         if (p) |player| {
             const diff = @min(24, 40 - @fabs(player.common.x + 4 - 64));
-            rectfill(0, 0, diff, 128, 0);
-            rectfill(128 - diff, 0, 128, 128, 0);
+            P8.rectfill(0, 0, diff, 128, 0);
+            P8.rectfill(128 - diff, 0, 128, 128, 0);
         }
     }
 }
@@ -2245,7 +2250,7 @@ fn draw_object(object: *Object) void {
             },
             EntityType.chest, EntityType.fruit, EntityType.key, EntityType.smoke, EntityType.spring => {
                 if (object.common.spr > 0) {
-                    spr(object.common.spr, object.common.x, object.common.y, 1, 1, object.common.flip_x, object.common.flip_y);
+                    P8.spr(object.common.spr, object.common.x, object.common.y, 1, 1, object.common.flip_x, object.common.flip_y);
                 }
             },
         }
@@ -2257,14 +2262,14 @@ fn draw_time(x: p8num, y: p8num) void {
     const m: u32 = @intFromFloat(@mod(minutes, 60));
     const h: u32 = @intFromFloat(@divTrunc(minutes, 60));
 
-    rectfill(x, y, x + 32, y + 6, 0);
+    P8.rectfill(x, y, x + 32, y + 6, 0);
     //	print((h<10 and "0"..h or h)..":"..(m<10 and "0"..m or m)..":"..(s<10 and "0"..s or s),x+1,y+1,7)
     var str: [20]u8 = undefined;
     @memset(&str, 0);
     _ = std.fmt.bufPrint(&str, "{:0>2}:{:0>2}:{:0>2} ", .{ h, m, s }) catch {
         return;
     };
-    print(&str, x + 1, y + 1, 7);
+    P8.print(&str, x + 1, y + 1, 7);
 }
 
 //// TODO: to be reintegrated at the proper place
@@ -2273,7 +2278,7 @@ fn draw_time(x: p8num, y: p8num) void {
 fn kill_player(player: *Player, common: *ObjectCommon) void {
     _ = player;
     sfx_timer = 12;
-    sfx(0);
+    P8.sfx(0);
     deaths += 1;
     shake = 10;
     destroy_object(common);
@@ -2285,8 +2290,8 @@ fn kill_player(player: *Player, common: *ObjectCommon) void {
         p.y = common.y + 4;
         p.t = 10;
         p.spd = P8Point{
-            .x = p8_sin(angle) * 3,
-            .y = p8_cos(angle) * 3,
+            .x = P8.sin(angle) * 3,
+            .y = P8.cos(angle) * 3,
         };
         dir += 1;
     }
@@ -2350,7 +2355,7 @@ fn update_object(object: *Object) void {
 }
 
 fn tile_at(x: p8num, y: p8num) p8tile {
-    return mget(room.x * 16 + x, room.y * 16 + y);
+    return P8.mget(room.x * 16 + x, room.y * 16 + y);
 }
 
 fn spikes_at(x: p8num, y: p8num, w: p8num, h: p8num, xspd: p8num, yspd: p8num) bool {
@@ -2378,7 +2383,7 @@ fn tile_flag_at(x: p8num, y: p8num, w: p8num, h: p8num, flag: p8num) bool {
     while (i <= @min(15, (x + w - 1) / 8)) : (i += 1) {
         var j = @max(0, @divTrunc(y, 8));
         while (j <= @min(15, (y + h - 1) / 8)) : (j += 1) {
-            if (fget(@intCast(tile_at(i, j)), flag)) {
+            if (P8.fget(@intCast(tile_at(i, j)), flag)) {
                 return true;
             }
         }
@@ -2387,7 +2392,7 @@ fn tile_flag_at(x: p8num, y: p8num, w: p8num, h: p8num, flag: p8num) bool {
 }
 
 fn maybe() bool {
-    return rnd(1) < 0.5;
+    return P8.rnd(1) < 0.5;
 }
 
 fn solid_at(x: p8num, y: p8num, w: p8num, h: p8num) bool {
