@@ -284,33 +284,33 @@ pub fn main() !void {
     }
 }
 
-const p8num = f32;
 const p8tile = i8;
 const P8Point = struct {
-    x: p8num,
-    y: p8num,
+    x: P8.num,
+    y: P8.num,
 };
 const P8Rect = struct {
-    x: p8num,
-    y: p8num,
-    w: p8num,
-    h: p8num,
+    x: P8.num,
+    y: P8.num,
+    w: P8.num,
+    h: P8.num,
 };
 
 const P8 = struct {
-    fn btn(button: p8num) bool {
+    const num = f32;
+    fn btn(button: num) bool {
         const one: u8 = 1;
         return (button_state & (one << @as(u3, @intFromFloat(button))) != 0);
     }
 
-    fn sfx(id: p8num) void {
+    fn sfx(id: num) void {
         const sfx_id: usize = @intFromFloat(id);
         const sfx_index = sfx_id * 68;
         const sfx_data = cart_data.sfx[sfx_index .. sfx_index + 68];
         audio_channel.play_sfx(sfx_data);
     }
 
-    fn music(a: p8num, b: p8num, c: p8num) void {
+    fn music(a: num, b: num, c: num) void {
         // TODO
         _ = a;
         _ = b;
@@ -326,14 +326,14 @@ const P8 = struct {
         should_reload_gfx_texture = true;
     }
 
-    fn pal(x: p8num, y: p8num) void {
+    fn pal(x: num, y: num) void {
         const xi: usize = @intFromFloat(x);
         palette[xi] = base_palette[@intFromFloat(y)];
         should_reload_gfx_texture = true;
     }
 
     // sprites
-    fn spr(sprite: p8num, x: p8num, y: p8num, w: p8num, h: p8num, flip_x: bool, flip_y: bool) void {
+    fn spr(sprite: num, x: num, y: num, w: num, h: num, flip_x: bool, flip_y: bool) void {
         _ = w;
         _ = h;
         _ = flip_y;
@@ -363,21 +363,21 @@ const P8 = struct {
     }
 
     // sprite flags
-    fn fget(tile: usize, flag: p8num) bool {
+    fn fget(tile: usize, flag: num) bool {
         const f: u5 = @intFromFloat(flag);
         const one: u32 = 1;
         return tile < cart_data.gff.len and (cart_data.gff[tile] & (one << f)) != 0;
     }
 
     // shapes
-    fn line(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
+    fn line(x1: num, y1: num, x2: num, y2: num, col: num) void {
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
         _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
 
         _ = sdl.SDL_RenderDrawLine(renderer, @intFromFloat(x1), @intFromFloat(y1), @intFromFloat(x2), @intFromFloat(y2));
     }
 
-    fn rectfill(x1: p8num, y1: p8num, x2: p8num, y2: p8num, col: p8num) void {
+    fn rectfill(x1: num, y1: num, x2: num, y2: num, col: num) void {
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
         _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
 
@@ -393,7 +393,7 @@ const P8 = struct {
         _ = sdl.SDL_RenderFillRect(renderer, &rect);
     }
 
-    fn circfill(x: p8num, y: p8num, r: p8num, col: p8num) void {
+    fn circfill(x: num, y: num, r: num, col: num) void {
         const xi: c_int = @intFromFloat(x);
         const yi: c_int = @intFromFloat(y);
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
@@ -411,7 +411,7 @@ const P8 = struct {
         }
     }
 
-    fn print(str: []const u8, x: p8num, y: p8num, col: p8num) void {
+    fn print(str: []const u8, x: num, y: num, col: num) void {
         var col_idx: usize = @intFromFloat(@mod(col, 16));
         var x_var: c_int = @intFromFloat(x);
 
@@ -437,20 +437,20 @@ const P8 = struct {
     }
 
     // screen
-    fn camera(x: p8num, y: p8num) void {
+    fn camera(x: num, y: num) void {
         // TODO
         _ = x;
         _ = y;
     }
 
     // map
-    fn map(cel_x: p8num, cel_y: p8num, screen_x: p8num, screen_y: p8num, cel_w: p8num, cel_h: p8num, mask: p8num) void {
+    fn map(cel_x: num, cel_y: num, screen_x: num, screen_y: num, cel_w: num, cel_h: num, mask: num) void {
         reload_textures(renderer);
 
-        var x: p8num = 0;
+        var x: num = 0;
         const map_len = cart_data.map_low.len + cart_data.map_high.len;
         while (x < cel_w) : (x += 1) {
-            var y: p8num = 0;
+            var y: num = 0;
             while (y < cel_h) : (y += 1) {
                 const tile_index: usize = @intFromFloat(x + cel_x + (y + cel_y) * 128);
                 if (tile_index < map_len) {
@@ -476,7 +476,7 @@ const P8 = struct {
         }
     }
 
-    fn mget(tx: p8num, ty: p8num) p8tile {
+    fn mget(tx: num, ty: num) p8tile {
         if (ty <= 31) {
             const idx: usize = @intFromFloat(tx + ty * 128);
             return @intCast(cart_data.map_low[idx]);
@@ -487,23 +487,23 @@ const P8 = struct {
     }
 
     // math
-    fn rnd(max: p8num) p8num {
+    fn rnd(max: num) num {
         const n: i64 = pico8_random(10000 * max);
-        return @as(p8num, @floatFromInt(n)) / 10000;
+        return @as(num, @floatFromInt(n)) / 10000;
     }
 
-    fn sin(x: p8num) p8num {
+    fn sin(x: num) num {
         return -std.math.sin(x * 6.2831853071796); //https://pico-8.fandom.com/wiki/Math
     }
 
-    fn cos(x: p8num) p8num {
+    fn cos(x: num) num {
         return -sin((x) + 0.25);
     }
 };
 
 var rnd_seed_lo: i64 = 0;
 var rnd_seed_hi: i64 = 1;
-fn pico8_random(max: p8num) i64 { //decomp'd pico-8
+fn pico8_random(max: P8.num) i64 { //decomp'd pico-8
     if (max == 0) {
         return 0;
     }
@@ -523,35 +523,35 @@ fn pico8_random(max: p8num) i64 { //decomp'd pico-8
 /////////////
 
 var new_bg: bool = false;
-var frames: p8num = 0;
-var deaths: p8num = 0;
-var max_djump: p8num = 0;
+var frames: P8.num = 0;
+var deaths: P8.num = 0;
+var max_djump: P8.num = 0;
 var start_game: bool = false;
-var start_game_flash: p8num = 0;
-var seconds: p8num = 0;
-var minutes: p8num = 0;
+var start_game_flash: P8.num = 0;
+var seconds: P8.num = 0;
+var minutes: P8.num = 0;
 
 var room: P8Point = P8Point{ .x = 0, .y = 0 };
 var objects: [30]Object = undefined;
 // types = {}
-var freeze: p8num = 0;
-var shake: p8num = 0;
+var freeze: P8.num = 0;
+var shake: P8.num = 0;
 var will_restart: bool = false;
-var delay_restart: p8num = 0;
+var delay_restart: P8.num = 0;
 var got_fruit: [30]bool = undefined;
 var has_dashed: bool = false;
-var sfx_timer: p8num = 0;
+var sfx_timer: P8.num = 0;
 var has_key: bool = false;
 var pause_player: bool = false;
 var flash_bg: bool = false;
-var music_timer: p8num = 0;
+var music_timer: P8.num = 0;
 
-const k_left: p8num = 0;
-const k_right: p8num = 1;
-const k_up: p8num = 2;
-const k_down: p8num = 3;
-const k_jump: p8num = 4;
-const k_dash: p8num = 5;
+const k_left: P8.num = 0;
+const k_right: P8.num = 1;
+const k_up: P8.num = 2;
+const k_down: P8.num = 3;
+const k_jump: P8.num = 4;
+const k_dash: P8.num = 5;
 
 // entry point //
 /////////////////
@@ -606,7 +606,7 @@ fn begin_game() void {
     load_room(0, 0);
 }
 
-fn level_index() p8num {
+fn level_index() P8.num {
     return @mod(room.x, 8) + room.y * 8;
 }
 
@@ -618,23 +618,23 @@ fn is_title() bool {
 /////////////
 
 const Cloud = struct {
-    x: p8num,
-    y: p8num,
-    w: p8num,
-    spd: p8num,
+    x: P8.num,
+    y: P8.num,
+    w: P8.num,
+    spd: P8.num,
 };
 
 var clouds: [17]Cloud = undefined;
 
 const Particle = struct {
     active: bool,
-    x: p8num,
-    y: p8num,
-    t: p8num = 0,
-    h: p8num = 0,
-    s: p8num = 0,
-    off: p8num = 0,
-    c: p8num = 0,
+    x: P8.num,
+    y: P8.num,
+    t: P8.num = 0,
+    h: P8.num = 0,
+    s: P8.num = 0,
+    off: P8.num = 0,
+    c: P8.num = 0,
     spd: P8Point,
 };
 
@@ -647,14 +647,14 @@ var dead_particles: [8]Particle = undefined;
 const Player = struct {
     p_jump: bool,
     p_dash: bool,
-    grace: p8num,
-    jbuffer: p8num,
-    djump: p8num,
-    dash_time: p8num,
-    dash_effect_time: p8num,
+    grace: P8.num,
+    jbuffer: P8.num,
+    djump: P8.num,
+    dash_time: P8.num,
+    dash_effect_time: P8.num,
     dash_target: P8Point,
     dash_accel: P8Point,
-    spr_off: p8num,
+    spr_off: P8.num,
     was_on_ground: bool,
     hair: [5]Hair,
 
@@ -678,7 +678,7 @@ const Player = struct {
     fn update(self: *Player, common: *ObjectCommon) void {
         if (pause_player) return;
 
-        var input: p8num = 0;
+        var input: P8.num = 0;
         if (P8.btn(k_left)) {
             input = -1;
         } else if (P8.btn(k_right)) {
@@ -735,15 +735,15 @@ const Player = struct {
         } else {
 
             // move
-            var maxrun: p8num = 1;
-            var accel: p8num = 0.6;
-            var deccel: p8num = 0.15;
+            var maxrun: P8.num = 1;
+            var accel: P8.num = 0.6;
+            var deccel: P8.num = 0.15;
 
             if (!on_ground) {
                 accel = 0.4;
             } else if (on_ice) {
                 accel = 0.05;
-                const input_facing: p8num = if (common.flip_x) -1 else 1;
+                const input_facing: P8.num = if (common.flip_x) -1 else 1;
                 if (input == input_facing) {
                     accel = 0.05;
                 }
@@ -761,8 +761,8 @@ const Player = struct {
             }
 
             // gravity
-            var maxfall: p8num = 2;
-            var gravity: p8num = 0.21;
+            var maxfall: P8.num = 2;
+            var gravity: P8.num = 0.21;
 
             if (@fabs(common.spd.y) <= 0.15) {
                 gravity *= 0.5;
@@ -791,7 +791,7 @@ const Player = struct {
                     init_object(EntityType.smoke, common.x, common.y + 4);
                 } else {
                     // wall jump
-                    var wall_dir: p8num = if (common.is_solid(3, 0)) 1 else 0;
+                    var wall_dir: P8.num = if (common.is_solid(3, 0)) 1 else 0;
                     wall_dir = if (common.is_solid(-3, 0)) -1 else wall_dir;
                     if (wall_dir != 0) {
                         psfx(2);
@@ -806,8 +806,8 @@ const Player = struct {
             }
 
             // dash
-            const d_full: p8num = 5;
-            const d_half: p8num = d_full * 0.70710678118;
+            const d_full: P8.num = 5;
+            const d_half: P8.num = d_full * 0.70710678118;
 
             if (self.djump > 0 and dash) {
                 init_object(EntityType.smoke, common.x, common.y);
@@ -815,7 +815,7 @@ const Player = struct {
                 self.dash_time = 4;
                 has_dashed = true;
                 self.dash_effect_time = 10;
-                var v_input: p8num = if (P8.btn(k_down)) 1 else 0;
+                var v_input: P8.num = if (P8.btn(k_down)) 1 else 0;
                 v_input = if (P8.btn(k_up)) -1 else v_input;
                 if (input != 0) {
                     if (v_input != 0) {
@@ -896,21 +896,21 @@ const Player = struct {
     }
 };
 
-fn psfx(x: p8num) void {
+fn psfx(x: P8.num) void {
     if (sfx_timer <= 0) {
         P8.sfx(x);
     }
 }
 
 const Hair = struct {
-    x: p8num,
-    y: p8num,
-    size: p8num,
+    x: P8.num,
+    y: P8.num,
+    size: P8.num,
     isLast: bool,
 };
 
 fn create_hair(hair: []Hair, common: *ObjectCommon) void {
-    var i: p8num = 0;
+    var i: P8.num = 0;
     while (i <= 4) : (i += 1) {
         hair[@intFromFloat(i)] = Hair{
             .x = common.x,
@@ -921,7 +921,7 @@ fn create_hair(hair: []Hair, common: *ObjectCommon) void {
     }
 }
 
-fn set_hair_color(djump: p8num) void {
+fn set_hair_color(djump: P8.num) void {
     const col =
         if (djump == 1)
         8
@@ -933,9 +933,9 @@ fn set_hair_color(djump: p8num) void {
     P8.pal(8, col);
 }
 
-fn draw_hair(hair: []Hair, common: *ObjectCommon, facing: p8num) void {
-    var last_x: p8num = common.x + 4 - facing * 2;
-    var last_y: p8num = common.y;
+fn draw_hair(hair: []Hair, common: *ObjectCommon, facing: P8.num) void {
+    var last_x: P8.num = common.x + 4 - facing * 2;
+    var last_y: P8.num = common.y;
     if (P8.btn(k_down)) {
         last_y += 4;
     } else {
@@ -956,8 +956,8 @@ fn unset_hair_color() void {
 
 const PlayerSpawn = struct {
     target: P8Point,
-    state: p8num,
-    delay: p8num,
+    state: P8.num,
+    delay: P8.num,
     hair: [5]Hair,
 
     fn init(self: *PlayerSpawn, common: *ObjectCommon) void {
@@ -1013,9 +1013,9 @@ const PlayerSpawn = struct {
 };
 
 const Spring = struct {
-    hide_in: p8num,
-    hide_for: p8num,
-    delay: p8num,
+    hide_in: P8.num,
+    hide_for: P8.num,
+    delay: P8.num,
 
     fn init(self: *Spring, common: *ObjectCommon) void {
         _ = common;
@@ -1073,9 +1073,9 @@ fn break_spring(self: *Spring) void {
 }
 
 const Balloon = struct {
-    timer: p8num,
-    offset: p8num,
-    start: p8num,
+    timer: P8.num,
+    offset: P8.num,
+    start: P8.num,
 
     //tile=22,
     fn init(self: *Balloon, common: *ObjectCommon) void {
@@ -1115,8 +1115,8 @@ const Balloon = struct {
 };
 
 const FallFloor = struct {
-    state: p8num,
-    delay: p8num,
+    state: P8.num,
+    delay: P8.num,
 
     fn init(self: *FallFloor, common: *ObjectCommon) void {
         self.state = 0;
@@ -1193,8 +1193,8 @@ const Smoke = struct {
 };
 
 const Fruit = struct {
-    start: p8num,
-    off: p8num,
+    start: P8.num,
+    off: P8.num,
     //tile=26,
     //if_not_fruit=true,
     fn init(self: *Fruit, common: *ObjectCommon) void {
@@ -1220,9 +1220,9 @@ const Fruit = struct {
 
 const FlyFruit = struct {
     fly: bool,
-    step: p8num,
-    sfx_delay: p8num,
-    start: p8num,
+    step: P8.num,
+    sfx_delay: P8.num,
+    start: P8.num,
 
     fn init(self: *FlyFruit, common: *ObjectCommon) void {
         self.start = common.y;
@@ -1270,7 +1270,7 @@ const FlyFruit = struct {
     }
 
     fn draw(self: *FlyFruit, common: *ObjectCommon) void {
-        var off: p8num = 0;
+        var off: P8.num = 0;
         if (!self.fly) {
             var dir = P8.sin(self.step);
             if (dir < 0) {
@@ -1286,8 +1286,8 @@ const FlyFruit = struct {
 };
 
 const LifeUp = struct {
-    duration: p8num,
-    flash: p8num,
+    duration: P8.num,
+    flash: P8.num,
 
     fn init(self: *LifeUp, common: *ObjectCommon) void {
         common.spd.y = -0.25;
@@ -1364,8 +1364,8 @@ const Key = struct {
 };
 
 const Chest = struct {
-    timer: p8num,
-    start: p8num,
+    timer: P8.num,
+    start: P8.num,
 
     // tile=20,
     // if_not_fruit=true,
@@ -1389,8 +1389,8 @@ const Chest = struct {
 };
 
 const Platform = struct {
-    last: p8num,
-    dir: p8num,
+    last: P8.num,
+    dir: P8.num,
 
     fn init(self: *Platform, common: *ObjectCommon) void {
         common.x -= 4;
@@ -1425,14 +1425,14 @@ const Platform = struct {
 
 const Message = struct {
     text: []const u8,
-    index: p8num,
-    last: p8num,
+    index: P8.num,
+    last: P8.num,
     off: P8Point,
 
     fn draw(self: *Message, common: *ObjectCommon) void {
         self.text = "-- celeste mountain --#this memorial to those# perished on the climb";
         if (common.check(EntityType.player, 4, 0)) {
-            if (self.index < @as(p8num, @floatFromInt(self.text.len))) {
+            if (self.index < @as(P8.num, @floatFromInt(self.text.len))) {
                 self.index += 0.5;
                 if (self.index >= self.last + 1) {
                     self.last += 1;
@@ -1440,7 +1440,7 @@ const Message = struct {
                 }
             }
             self.off = P8Point{ .x = 8, .y = 96 };
-            var i: p8num = 0;
+            var i: P8.num = 0;
             while (i < self.index) : (i += 1) {
                 if (self.text[@intFromFloat(i)] != '#') {
                     P8.rectfill(self.off.x - 2, self.off.y - 2, self.off.x + 7, self.off.y + 6, 7);
@@ -1459,9 +1459,9 @@ const Message = struct {
 };
 
 const BigChest = struct {
-    state: p8num,
-    timer: p8num,
-    particle_count: p8num,
+    state: P8.num,
+    timer: P8.num,
+    particle_count: P8.num,
     particles: [50]Particle,
 
     fn init(self: *BigChest, common: *ObjectCommon) void {
@@ -1551,8 +1551,8 @@ const Orb = struct {
         }
 
         P8.spr(102, common.x, common.y, 1, 1, false, false);
-        const off: p8num = frames / 30;
-        var i: p8num = 0;
+        const off: P8.num = frames / 30;
+        var i: P8.num = 0;
         while (i <= 7) : (i += 1) {
             P8.circfill(common.x + 4 + P8.cos(off + i / 8) * 8, common.y + 4 + P8.sin(off + i / 8) * 8, 1, 7);
         }
@@ -1561,7 +1561,7 @@ const Orb = struct {
 
 const Flag = struct {
     show: bool,
-    score: p8num,
+    score: P8.num,
 
     fn init(self: *Flag, common: *ObjectCommon) void {
         common.x += 5;
@@ -1600,7 +1600,7 @@ const Flag = struct {
 };
 
 const RoomTitle = struct {
-    delay: p8num,
+    delay: P8.num,
 
     fn init(self: *RoomTitle) void {
         self.delay = 5;
@@ -1622,7 +1622,7 @@ const RoomTitle = struct {
                 _ = std.fmt.bufPrint(&str, "{} m", .{@as(i32, @intFromFloat(level))}) catch {
                     return;
                 };
-                const offset: p8num = if (level < 1000) 2 else 0;
+                const offset: P8.num = if (level < 1000) 2 else 0;
                 P8.print(&str, 52 + offset, 62, 7);
             }
             //print("//-",86,64-2,13)
@@ -1688,18 +1688,18 @@ const all_entity_types = [_]EntityType{
 const ObjectCommon = struct {
     entity_type: EntityType,
     active: bool,
-    x: p8num,
-    y: p8num,
+    x: P8.num,
+    y: P8.num,
     hitbox: P8Rect,
     spd: P8Point,
     rem: P8Point,
-    spr: p8num,
+    spr: P8.num,
     flip_x: bool,
     flip_y: bool,
     solids: bool,
     collideable: bool,
 
-    fn init(self: *ObjectCommon, x: p8num, y: p8num, entity_type: EntityType) void {
+    fn init(self: *ObjectCommon, x: P8.num, y: P8.num, entity_type: EntityType) void {
         self.entity_type = entity_type;
         self.active = true;
         self.x = x;
@@ -1714,7 +1714,7 @@ const ObjectCommon = struct {
         self.collideable = true;
     }
 
-    fn collide(self: *ObjectCommon, entity_type: EntityType, ox: p8num, oy: p8num) ?*Object {
+    fn collide(self: *ObjectCommon, entity_type: EntityType, ox: P8.num, oy: P8.num) ?*Object {
         // local other
         for (&objects) |*other| {
             // TODO compare object ids: if (other.common.active and other.common.entity_type == entity_type and other.common != self.* and other.collideable and
@@ -1730,16 +1730,16 @@ const ObjectCommon = struct {
         return null;
     }
 
-    fn check(self: *ObjectCommon, entity_type: EntityType, ox: p8num, oy: p8num) bool {
+    fn check(self: *ObjectCommon, entity_type: EntityType, ox: P8.num, oy: P8.num) bool {
         return self.collide(entity_type, ox, oy) != null;
     }
 
-    fn is_ice(self: *ObjectCommon, ox: p8num, oy: p8num) bool {
+    fn is_ice(self: *ObjectCommon, ox: P8.num, oy: P8.num) bool {
         return ice_at(self.x + self.hitbox.x + ox, self.y + self.hitbox.y + oy, self.hitbox.w, self.hitbox.h);
     }
 
-    fn move(self: *ObjectCommon, ox: p8num, oy: p8num) void {
-        var amount: p8num = 0;
+    fn move(self: *ObjectCommon, ox: P8.num, oy: P8.num) void {
+        var amount: P8.num = 0;
 
         self.rem.x += ox;
         amount = @floor(self.rem.x + 0.5);
@@ -1752,10 +1752,10 @@ const ObjectCommon = struct {
         self.move_y(amount);
     }
 
-    fn move_x(self: *ObjectCommon, amount: p8num, start: p8num) void {
+    fn move_x(self: *ObjectCommon, amount: P8.num, start: P8.num) void {
         if (self.solids) {
             const step = sign(amount);
-            var i: p8num = start;
+            var i: P8.num = start;
             while (i <= @fabs(amount)) : (i += 1) { // i <= amount
                 if (!self.is_solid(step, 0)) {
                     self.x += step;
@@ -1770,10 +1770,10 @@ const ObjectCommon = struct {
         }
     }
 
-    fn move_y(self: *ObjectCommon, amount: p8num) void {
+    fn move_y(self: *ObjectCommon, amount: P8.num) void {
         if (self.solids) {
             const step = sign(amount);
-            var i: p8num = 0;
+            var i: P8.num = 0;
             while (i <= @fabs(amount)) : (i += 1) {
                 if (!self.is_solid(0, step)) {
                     self.y += step;
@@ -1788,7 +1788,7 @@ const ObjectCommon = struct {
         }
     }
 
-    fn is_solid(self: *ObjectCommon, ox: p8num, oy: p8num) bool {
+    fn is_solid(self: *ObjectCommon, ox: P8.num, oy: P8.num) bool {
         if (oy > 0 and !self.check(EntityType.platform, ox, 0) and self.check(EntityType.platform, ox, oy)) {
             return true;
         }
@@ -1822,11 +1822,11 @@ const Object = struct {
     specific: ObjectSpecific,
 };
 
-fn init_object(etype: EntityType, x: p8num, y: p8num) void {
+fn init_object(etype: EntityType, x: P8.num, y: P8.num) void {
     _ = create_object(etype, x, y);
 }
 
-fn create_object(etype: EntityType, x: p8num, y: p8num) *Object {
+fn create_object(etype: EntityType, x: P8.num, y: P8.num) *Object {
     if (etype.if_not_fruit() and got_fruit[@intFromFloat(level_index())]) {
         return undefined;
     }
@@ -1964,7 +1964,7 @@ fn next_room() void {
     }
 }
 
-fn load_room(x: p8num, y: p8num) void {
+fn load_room(x: P8.num, y: P8.num) void {
     has_dashed = false;
     has_key = false;
 
@@ -1978,9 +1978,9 @@ fn load_room(x: p8num, y: p8num) void {
     room.y = y;
 
     // entities
-    var tx: p8num = 0;
+    var tx: P8.num = 0;
     while (tx <= 15) : (tx += 1) {
-        var ty: p8num = 0;
+        var ty: P8.num = 0;
         while (ty <= 15) : (ty += 1) {
             const tile = P8.mget(room.x * 16 + tx, room.y * 16 + ty);
             if (tile == 11) {
@@ -2086,7 +2086,7 @@ fn _draw() void {
 
     // start game flash
     if (start_game) {
-        var c: p8num = 10;
+        var c: P8.num = 10;
         if (start_game_flash > 10) {
             if (@mod(frames, 10) < 5) {
                 c = 7;
@@ -2109,7 +2109,7 @@ fn _draw() void {
     }
 
     // clear screen
-    var bg_col: p8num = 0;
+    var bg_col: P8.num = 0;
     if (flash_bg) {
         bg_col = frames / 5;
     } else if (new_bg) {
@@ -2140,7 +2140,7 @@ fn _draw() void {
     }
 
     // draw terrain
-    const off: p8num = if (is_title()) -4 else 0;
+    const off: P8.num = if (is_title()) -4 else 0;
     P8.map(room.x * 16, room.y * 16, off, 0, 16, 16, 2);
 
     // draw objects
@@ -2257,7 +2257,7 @@ fn draw_object(object: *Object) void {
     }
 }
 
-fn draw_time(x: p8num, y: p8num) void {
+fn draw_time(x: P8.num, y: P8.num) void {
     const s: u32 = @intFromFloat(seconds);
     const m: u32 = @intFromFloat(@mod(minutes, 60));
     const h: u32 = @intFromFloat(@divTrunc(minutes, 60));
@@ -2282,7 +2282,7 @@ fn kill_player(player: *Player, common: *ObjectCommon) void {
     deaths += 1;
     shake = 10;
     destroy_object(common);
-    var dir: p8num = 0;
+    var dir: P8.num = 0;
     for (&dead_particles) |*p| {
         const angle = (dir / 8);
         p.active = true;
@@ -2354,14 +2354,14 @@ fn update_object(object: *Object) void {
     }
 }
 
-fn tile_at(x: p8num, y: p8num) p8tile {
+fn tile_at(x: P8.num, y: P8.num) p8tile {
     return P8.mget(room.x * 16 + x, room.y * 16 + y);
 }
 
-fn spikes_at(x: p8num, y: p8num, w: p8num, h: p8num, xspd: p8num, yspd: p8num) bool {
-    var i: p8num = @max(0, @floor(x / 8));
+fn spikes_at(x: P8.num, y: P8.num, w: P8.num, h: P8.num, xspd: P8.num, yspd: P8.num) bool {
+    var i: P8.num = @max(0, @floor(x / 8));
     while (i <= @min(15, (x + w - 1) / 8)) : (i += 1) {
-        var j: p8num = @max(0, @floor(y / 8));
+        var j: P8.num = @max(0, @floor(y / 8));
         while (j <= @min(15, (y + h - 1) / 8)) : (j += 1) {
             const tile = tile_at(i, j);
             if (tile == 17 and (@mod(y + h - 1, 8) >= 6 or y + h == j * 8 + 8) and yspd >= 0) {
@@ -2378,8 +2378,8 @@ fn spikes_at(x: p8num, y: p8num, w: p8num, h: p8num, xspd: p8num, yspd: p8num) b
     return false;
 }
 
-fn tile_flag_at(x: p8num, y: p8num, w: p8num, h: p8num, flag: p8num) bool {
-    var i: p8num = @max(0, @divTrunc(x, 8));
+fn tile_flag_at(x: P8.num, y: P8.num, w: P8.num, h: P8.num, flag: P8.num) bool {
+    var i: P8.num = @max(0, @divTrunc(x, 8));
     while (i <= @min(15, (x + w - 1) / 8)) : (i += 1) {
         var j = @max(0, @divTrunc(y, 8));
         while (j <= @min(15, (y + h - 1) / 8)) : (j += 1) {
@@ -2395,22 +2395,22 @@ fn maybe() bool {
     return P8.rnd(1) < 0.5;
 }
 
-fn solid_at(x: p8num, y: p8num, w: p8num, h: p8num) bool {
+fn solid_at(x: P8.num, y: P8.num, w: P8.num, h: P8.num) bool {
     return tile_flag_at(x, y, w, h, 0);
 }
 
-fn ice_at(x: p8num, y: p8num, w: p8num, h: p8num) bool {
+fn ice_at(x: P8.num, y: P8.num, w: P8.num, h: P8.num) bool {
     return tile_flag_at(x, y, w, h, 4);
 }
 
-fn clamp(x: p8num, a: p8num, b: p8num) p8num {
+fn clamp(x: P8.num, a: P8.num, b: P8.num) P8.num {
     return @max(a, @min(b, x));
 }
 
-fn appr(val: p8num, target: p8num, amount: p8num) p8num {
+fn appr(val: P8.num, target: P8.num, amount: P8.num) P8.num {
     return if (val > target) @max(val - amount, target) else @min(val + amount, target);
 }
 
-fn sign(v: p8num) p8num {
+fn sign(v: P8.num) P8.num {
     return if (v > 0) 1 else (if (v < 0) -1 else 0);
 }
