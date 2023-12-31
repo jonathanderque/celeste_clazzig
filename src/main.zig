@@ -487,8 +487,24 @@ const P8 = struct {
     }
 
     // math
-    fn rnd(max: num) num {
-        const n: i64 = pico8_random(10000 * max);
+    fn abs(n: num) num {
+        return @fabs(n);
+    }
+
+    fn flr(n: num) num {
+        return @floor(n);
+    }
+
+    fn min(n1: num, n2: num) num {
+        return @min(n1, n2);
+    }
+
+    fn max(n1: num, n2: num) num {
+        return @max(n1, n2);
+    }
+
+    fn rnd(rnd_max: num) num {
+        const n: i64 = pico8_random(10000 * rnd_max);
         return @as(num, @floatFromInt(n)) / 10000;
     }
 
@@ -573,10 +589,10 @@ fn _init() void {
         p.active = true;
         p.x = P8.rnd(128);
         p.y = P8.rnd(128);
-        p.s = 0 + @floor(P8.rnd(5) / 4);
+        p.s = 0 + P8.flr(P8.rnd(5) / 4);
         p.spd = P8Point{ .x = 0.25 + P8.rnd(5), .y = 0 };
         p.off = P8.rnd(1);
-        p.c = 6 + @floor(0.5 + P8.rnd(1));
+        p.c = 6 + P8.flr(0.5 + P8.rnd(1));
     }
     title_screen();
 }
@@ -749,7 +765,7 @@ const Player = struct {
                 }
             }
 
-            if (@fabs(common.spd.x) > maxrun) {
+            if (P8.abs(common.spd.x) > maxrun) {
                 common.spd.x = appr(common.spd.x, sign(common.spd.x) * maxrun, deccel);
             } else {
                 common.spd.x = appr(common.spd.x, input * maxrun, accel);
@@ -764,7 +780,7 @@ const Player = struct {
             var maxfall: P8.num = 2;
             var gravity: P8.num = 0.21;
 
-            if (@fabs(common.spd.y) <= 0.15) {
+            if (P8.abs(common.spd.y) <= 0.15) {
                 gravity *= 0.5;
             }
 
@@ -915,7 +931,7 @@ fn create_hair(hair: []Hair, common: *ObjectCommon) void {
         hair[@intFromFloat(i)] = Hair{
             .x = common.x,
             .y = common.y,
-            .size = @max(1, @min(2, 3 - i)),
+            .size = P8.max(1, P8.min(2, 3 - i)),
             .isLast = (i == 4),
         };
     }
@@ -927,7 +943,7 @@ fn set_hair_color(djump: P8.num) void {
         8
     else
         (if (djump == 2)
-            (7 + @floor(@mod(frames / 3, 2)) * 4)
+            (7 + P8.flr(@mod(frames / 3, 2)) * 4)
         else
             12);
     P8.pal(8, col);
@@ -1274,7 +1290,7 @@ const FlyFruit = struct {
         if (!self.fly) {
             var dir = P8.sin(self.step);
             if (dir < 0) {
-                off = 1 + @max(0, sign(common.y - self.start));
+                off = 1 + P8.max(0, sign(common.y - self.start));
             }
         } else {
             off = @mod(off + 0.25, 3);
@@ -1518,7 +1534,7 @@ const BigChest = struct {
             }
             for (&self.particles) |*p| {
                 p.y += p.spd.y;
-                P8.line(common.x + p.x, common.y + 8 - p.y, common.x + p.x, @min(common.y + 8 - p.y + p.h, common.y + 8), 7);
+                P8.line(common.x + p.x, common.y + 8 - p.y, common.x + p.x, P8.min(common.y + 8 - p.y + p.h, common.y + 8), 7);
             }
         }
         P8.spr(112, common.x, common.y + 8, 1, 1, false, false);
@@ -1742,12 +1758,12 @@ const ObjectCommon = struct {
         var amount: P8.num = 0;
 
         self.rem.x += ox;
-        amount = @floor(self.rem.x + 0.5);
+        amount = P8.flr(self.rem.x + 0.5);
         self.rem.x -= amount;
         self.move_x(amount, 0);
 
         self.rem.y += oy;
-        amount = @floor(self.rem.y + 0.5);
+        amount = P8.flr(self.rem.y + 0.5);
         self.rem.y -= amount;
         self.move_y(amount);
     }
@@ -1756,7 +1772,7 @@ const ObjectCommon = struct {
         if (self.solids) {
             const step = sign(amount);
             var i: P8.num = start;
-            while (i <= @fabs(amount)) : (i += 1) { // i <= amount
+            while (i <= P8.abs(amount)) : (i += 1) { // i <= amount
                 if (!self.is_solid(step, 0)) {
                     self.x += step;
                 } else {
@@ -1774,7 +1790,7 @@ const ObjectCommon = struct {
         if (self.solids) {
             const step = sign(amount);
             var i: P8.num = 0;
-            while (i <= @fabs(amount)) : (i += 1) {
+            while (i <= P8.abs(amount)) : (i += 1) {
                 if (!self.is_solid(0, step)) {
                     self.y += step;
                 } else {
@@ -2157,7 +2173,7 @@ fn _draw() void {
     for (&particles) |*p| {
         p.x += p.spd.x;
         p.y += P8.sin(p.off);
-        p.off += @min(0.05, p.spd.x / 32);
+        p.off += P8.min(0.05, p.spd.x / 32);
         P8.rectfill(p.x, p.y, p.x + p.s, p.y + p.s, p.c);
         if (p.x > 128 + 4) {
             p.x = -4;
@@ -2199,7 +2215,7 @@ fn _draw() void {
             }
         }
         if (p) |player| {
-            const diff = @min(24, 40 - @fabs(player.common.x + 4 - 64));
+            const diff = P8.min(24, 40 - P8.abs(player.common.x + 4 - 64));
             P8.rectfill(0, 0, diff, 128, 0);
             P8.rectfill(128 - diff, 0, 128, 128, 0);
         }
@@ -2359,10 +2375,10 @@ fn tile_at(x: P8.num, y: P8.num) p8tile {
 }
 
 fn spikes_at(x: P8.num, y: P8.num, w: P8.num, h: P8.num, xspd: P8.num, yspd: P8.num) bool {
-    var i: P8.num = @max(0, @floor(x / 8));
-    while (i <= @min(15, (x + w - 1) / 8)) : (i += 1) {
-        var j: P8.num = @max(0, @floor(y / 8));
-        while (j <= @min(15, (y + h - 1) / 8)) : (j += 1) {
+    var i: P8.num = P8.max(0, P8.flr(x / 8));
+    while (i <= P8.min(15, (x + w - 1) / 8)) : (i += 1) {
+        var j: P8.num = P8.max(0, P8.flr(y / 8));
+        while (j <= P8.min(15, (y + h - 1) / 8)) : (j += 1) {
             const tile = tile_at(i, j);
             if (tile == 17 and (@mod(y + h - 1, 8) >= 6 or y + h == j * 8 + 8) and yspd >= 0) {
                 return true;
@@ -2379,10 +2395,10 @@ fn spikes_at(x: P8.num, y: P8.num, w: P8.num, h: P8.num, xspd: P8.num, yspd: P8.
 }
 
 fn tile_flag_at(x: P8.num, y: P8.num, w: P8.num, h: P8.num, flag: P8.num) bool {
-    var i: P8.num = @max(0, @divTrunc(x, 8));
-    while (i <= @min(15, (x + w - 1) / 8)) : (i += 1) {
-        var j = @max(0, @divTrunc(y, 8));
-        while (j <= @min(15, (y + h - 1) / 8)) : (j += 1) {
+    var i: P8.num = P8.max(0, @divTrunc(x, 8));
+    while (i <= P8.min(15, (x + w - 1) / 8)) : (i += 1) {
+        var j = P8.max(0, @divTrunc(y, 8));
+        while (j <= P8.min(15, (y + h - 1) / 8)) : (j += 1) {
             if (P8.fget(@intCast(tile_at(i, j)), flag)) {
                 return true;
             }
@@ -2404,11 +2420,11 @@ fn ice_at(x: P8.num, y: P8.num, w: P8.num, h: P8.num) bool {
 }
 
 fn clamp(x: P8.num, a: P8.num, b: P8.num) P8.num {
-    return @max(a, @min(b, x));
+    return P8.max(a, P8.min(b, x));
 }
 
 fn appr(val: P8.num, target: P8.num, amount: P8.num) P8.num {
-    return if (val > target) @max(val - amount, target) else @min(val + amount, target);
+    return if (val > target) P8.max(val - amount, target) else P8.min(val + amount, target);
 }
 
 fn sign(v: P8.num) P8.num {
