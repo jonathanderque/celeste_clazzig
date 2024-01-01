@@ -206,11 +206,13 @@ pub fn main() !void {
 
     var quit = false;
     var should_init = true;
-    var current_frame_timestamp = sdl.SDL_GetTicks();
+
+    var nextFrame = sdl.SDL_GetPerformanceCounter();
+    var nextSecond = nextFrame;
+    var fps: u32 = 0;
+    const target_fps = 30;
 
     while (!quit) {
-        current_frame_timestamp = sdl.SDL_GetTicks();
-
         var event: sdl.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.type) {
@@ -270,17 +272,28 @@ pub fn main() !void {
 
         button_state = key_left | key_right | key_up | key_down | key_up | key_jump | key_dash;
 
-        // update
-        if (should_init) {
-            _init();
-            should_init = false;
+        if (sdl.SDL_GetPerformanceCounter() >= nextFrame) {
+            while (sdl.SDL_GetPerformanceCounter() >= nextFrame) {
+                // update
+                if (should_init) {
+                    _init();
+                    should_init = false;
+                }
+                _update();
+                nextFrame += sdl.SDL_GetPerformanceFrequency() / target_fps;
+            }
+            fps += 1;
+            if (sdl.SDL_GetPerformanceCounter() >= nextSecond) {
+                // std.debug.print("fps: {}\n", .{fps});
+                fps = 0;
+                nextSecond += sdl.SDL_GetPerformanceFrequency();
+            }
+
+            _draw();
+            sdl.SDL_RenderPresent(renderer);
+        } else {
+            sdl.SDL_Delay(1);
         }
-        _update();
-
-        _draw();
-        sdl.SDL_RenderPresent(renderer);
-
-        sdl.SDL_Delay(33); // TODO proper 30fps
     }
 }
 
