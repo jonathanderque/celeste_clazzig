@@ -453,9 +453,12 @@ const P8 = struct {
     // screen
     var camera_x: num = 0;
     var camera_y: num = 0;
+    var camera_shake_option: bool = false;
     fn camera(x: num, y: num) void {
-        camera_x = x;
-        camera_y = y;
+        if (camera_shake_option) {
+            camera_x = x;
+            camera_y = y;
+        }
     }
 
     // map
