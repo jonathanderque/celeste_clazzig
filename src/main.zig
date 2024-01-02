@@ -362,8 +362,8 @@ const P8 = struct {
             src_rect.h = @intCast(8);
 
             var dst_rect: sdl.SDL_Rect = undefined;
-            dst_rect.x = @intFromFloat(x); // TODO substract camera_x
-            dst_rect.y = @intFromFloat(y); // TODO substract camera_y
+            dst_rect.x = @intFromFloat(x - camera_x);
+            dst_rect.y = @intFromFloat(y - camera_y);
             dst_rect.w = @intCast(8);
             dst_rect.h = @intCast(8);
 
@@ -387,15 +387,15 @@ const P8 = struct {
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
         _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
 
-        _ = sdl.SDL_RenderDrawLine(renderer, @intFromFloat(x1), @intFromFloat(y1), @intFromFloat(x2), @intFromFloat(y2));
+        _ = sdl.SDL_RenderDrawLine(renderer, @intFromFloat(x1 - camera_x), @intFromFloat(y1 - camera_y), @intFromFloat(x2 - camera_x), @intFromFloat(y2 - camera_y));
     }
 
     fn rectfill(x1: num, y1: num, x2: num, y2: num, col: num) void {
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
         _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
 
-        const x = x1;
-        const y = y1;
+        const x = x1 - camera_x;
+        const y = y1 - camera_y;
         const w = x2 - x1 + 1;
         const h = y2 - y1 + 1;
         var rect: sdl.SDL_Rect = undefined;
@@ -407,8 +407,8 @@ const P8 = struct {
     }
 
     fn circfill(x: num, y: num, r: num, col: num) void {
-        const xi: c_int = @intFromFloat(x);
-        const yi: c_int = @intFromFloat(y);
+        const xi: c_int = @intFromFloat(x - camera_x);
+        const yi: c_int = @intFromFloat(y - camera_y);
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
         _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
         if (r <= 1) {
@@ -424,9 +424,10 @@ const P8 = struct {
         }
     }
 
-    fn print(str: []const u8, x: num, y: num, col: num) void {
+    fn print(str: []const u8, x_arg: num, y_arg: num, col: num) void {
         var col_idx: usize = @intFromFloat(@mod(col, 16));
-        var x_var: c_int = @intFromFloat(x);
+        var x: c_int = @intFromFloat(x_arg - camera_x);
+        const y: c_int = @intFromFloat(y_arg - camera_y);
 
         for (str) |cconst| {
             var c = cconst;
@@ -439,21 +440,22 @@ const P8 = struct {
             src_rect.h = @intFromFloat(8);
 
             var dst_rect: sdl.SDL_Rect = undefined;
-            dst_rect.x = x_var; // TODO substract camera_x
-            dst_rect.y = @intFromFloat(y); // TODO substract camera_y
+            dst_rect.x = x;
+            dst_rect.y = y;
             dst_rect.w = @intCast(8);
             dst_rect.h = @intCast(8);
             _ = sdl.SDL_RenderCopy(renderer, font_textures[col_idx], &src_rect, &dst_rect);
 
-            x_var = x_var + 4;
+            x = x + 4;
         }
     }
 
     // screen
+    var camera_x: num = 0;
+    var camera_y: num = 0;
     fn camera(x: num, y: num) void {
-        // TODO
-        _ = x;
-        _ = y;
+        camera_x = x;
+        camera_y = y;
     }
 
     // map
@@ -477,8 +479,8 @@ const P8 = struct {
                         src_rect.h = @intCast(8);
 
                         var dst_rect: sdl.SDL_Rect = undefined;
-                        dst_rect.x = @intFromFloat(screen_x + x * 8); // TODO substract camera_x
-                        dst_rect.y = @intFromFloat(screen_y + y * 8); // TODO substract camera_y
+                        dst_rect.x = @intFromFloat(screen_x + x * 8 - camera_x);
+                        dst_rect.y = @intFromFloat(screen_y + y * 8 - camera_y);
                         dst_rect.w = @intCast(8);
                         dst_rect.h = @intCast(8);
 
