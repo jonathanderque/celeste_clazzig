@@ -74,6 +74,7 @@ const Waveform = struct {
 
 // at speed 1, a "full" sfx with 32 notes takes .266s;  each "note" is thus 8.3125ms long
 const note_duration: f64 = 0.266 / 32.0;
+//const note_duration: f64 = 1.0 / 183.0;
 const sample_duration: f64 = 1.0 / @as(f64, @floatFromInt(SAMPLE_RATE));
 
 pub const AudioChannel = struct {
@@ -82,6 +83,7 @@ pub const AudioChannel = struct {
     sfx_speed: f64 = 1,
     note_freq: f64 = 0,
     note_volume: f64 = 0,
+    note_effect: u8 = 0,
     note_instrument: usize = 0,
     waveform_position: f64, // Where we are on the waveform, loops around [0; Waveform.period[
     current_note_duration: f64, // used to track when to go to the next note
@@ -111,6 +113,15 @@ pub const AudioChannel = struct {
         self.sfx_speed = @floatFromInt(self.sfx_data[65]);
     }
 
+    pub fn assert_fx(effect: u8) void {
+        switch (effect) {
+            0, 5 => {},
+            else => {
+                std.log.err("TODO: unknown effect {} not implemented", .{effect});
+            },
+        }
+    }
+
     pub fn extract_note_params(self: *AudioChannel) void {
         self.note_freq = key_to_freq(33.0 + @as(f64, @floatFromInt(self.current_note_index)));
         const b1 = self.sfx_data[2 * self.current_note_index];
@@ -119,6 +130,8 @@ pub const AudioChannel = struct {
         self.note_freq = key_to_freq(@floatFromInt(key));
         self.note_volume = @floatFromInt((b2 >> 1) & 0b111);
         self.note_instrument = (b2 & 0b0000_0001) << 2 | (b1 >> 6);
+        self.note_effect = ((b2 >> 4) & 0b111);
+        assert_fx(self.note_effect);
     }
 
     pub fn sample(self: *AudioChannel) f64 {
@@ -138,7 +151,18 @@ pub const AudioChannel = struct {
             else => unreachable,
         };
 
-        s = s * self.note_volume / 7.0;
+        var volume = self.note_volume / 7.0;
+        switch (self.note_effect) {
+            5 => { // FADE OUT
+                const nd = note_duration * self.sfx_speed;
+                const fade_out = (nd - self.current_note_duration) / nd;
+                volume = volume * fade_out;
+            },
+            0 => {},
+            else => {},
+        }
+
+        s = s * volume;
 
         self.waveform_position += self.note_freq * Waveform.period / SAMPLE_RATE;
         if (self.waveform_position >= Waveform.period) {
