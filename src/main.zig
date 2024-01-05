@@ -10,7 +10,7 @@ const Texture = sdl.SDL_Texture;
 const cart_data = @import("generated/celeste.zig");
 const font = @import("font.zig").font;
 const audio = @import("audio.zig");
-const AudioChannel = audio.AudioChannel;
+const AudioEngine = audio.AudioEngine;
 
 const base_palette = [_]sdl.SDL_Color{
     sdl.SDL_Color{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xff }, //
@@ -124,7 +124,7 @@ fn sdl_first_controller() ?*sdl.SDL_GameController {
     return null;
 }
 
-var audio_channel = AudioChannel.init();
+var audio_engine = AudioEngine.init();
 
 pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len: c_int) callconv(.C) void {
     _ = arg_userdata;
@@ -136,7 +136,7 @@ pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len
     var i: usize = 0;
     while (i < len) : (i += 1) {
         const volume: f64 = @as(f64, 0.5) / 7;
-        const sample = audio_channel.sample();
+        const sample = audio_engine.sample();
 
         snd[i] = @as(c_short, @intFromFloat(sample * volume * 32767));
     }
@@ -320,7 +320,7 @@ const P8 = struct {
         const sfx_id: usize = @intFromFloat(id);
         const sfx_index = sfx_id * 68;
         const sfx_data = cart_data.sfx[sfx_index .. sfx_index + 68];
-        audio_channel.play_sfx(sfx_data);
+        audio_engine.play_sfx(sfx_id, sfx_data);
     }
 
     fn music(a: num, b: num, c: num) void {

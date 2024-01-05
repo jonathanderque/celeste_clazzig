@@ -77,8 +77,9 @@ const note_duration: f64 = 0.266 / 32.0;
 //const note_duration: f64 = 1.0 / 183.0;
 const sample_duration: f64 = 1.0 / @as(f64, @floatFromInt(SAMPLE_RATE));
 
-pub const AudioChannel = struct {
+const AudioChannel = struct {
     playing: bool,
+    sfx_id: usize = 0,
     sfx_data: []const u8,
     sfx_speed: f64 = 1,
     note_freq: f64 = 0,
@@ -100,7 +101,8 @@ pub const AudioChannel = struct {
         };
     }
 
-    pub fn play_sfx(self: *AudioChannel, sfx_data: []const u8) void {
+    pub fn play_sfx(self: *AudioChannel, sfx_id: usize, sfx_data: []const u8) void {
+        self.sfx_id = sfx_id;
         self.sfx_data = sfx_data;
         self.playing = true;
         self.waveform_position = 0;
@@ -186,5 +188,46 @@ pub const AudioChannel = struct {
         }
 
         return s;
+    }
+};
+
+pub const CHANNEL_COUNT: usize = 4;
+pub const AudioEngine = struct {
+    channels: [CHANNEL_COUNT]AudioChannel,
+
+    pub fn init() AudioEngine {
+        var channels: [CHANNEL_COUNT]AudioChannel = undefined;
+        for (0..CHANNEL_COUNT) |i| {
+            channels[i] = AudioChannel.init();
+        }
+        return AudioEngine{
+            .channels = channels,
+        };
+    }
+
+    pub fn sample(self: *AudioEngine) f64 {
+        var playing_count: f64 = 0;
+        for (0..CHANNEL_COUNT) |i| {
+            if (self.channels[i].playing) {
+                playing_count += 1;
+            }
+        }
+        const channel_blend: f64 = if (playing_count == 0) 1.0 else 1.0 / playing_count;
+        var result: f64 = 0.0;
+        for (0..CHANNEL_COUNT) |i| {
+            result += channel_blend * self.channels[i].sample();
+        }
+        return result;
+    }
+
+    pub fn play_sfx(self: *AudioEngine, sfx_id: usize, sfx_data: []const u8) void {
+        var channel: usize = 0;
+        for (0..CHANNEL_COUNT) |i| {
+            if (self.channels[i].playing == false or self.channels[i].sfx_id == sfx_id) {
+                channel = i;
+                break;
+            }
+        }
+        self.channels[channel].play_sfx(sfx_id, sfx_data);
     }
 };
