@@ -88,6 +88,7 @@ pub const AudioChannel = struct {
     waveform_position: f64, // Where we are on the waveform, loops around [0; Waveform.period[
     current_note_duration: f64, // used to track when to go to the next note
     current_note_index: usize, // in [0;32]
+    previous_note_freq: f64 = 0, // used for slide effect
 
     pub fn init() AudioChannel {
         return AudioChannel{
@@ -115,7 +116,7 @@ pub const AudioChannel = struct {
 
     pub fn assert_fx(effect: u8) void {
         switch (effect) {
-            0, 5 => {},
+            0, 1, 5 => {},
             else => {
                 std.log.err("TODO: unknown effect {} not implemented", .{effect});
             },
@@ -123,7 +124,7 @@ pub const AudioChannel = struct {
     }
 
     pub fn extract_note_params(self: *AudioChannel) void {
-        self.note_freq = key_to_freq(33.0 + @as(f64, @floatFromInt(self.current_note_index)));
+        self.previous_note_freq = self.note_freq;
         const b1 = self.sfx_data[2 * self.current_note_index];
         const b2 = self.sfx_data[2 * self.current_note_index + 1];
         const key: u8 = b1 & 0b0011_1111;
@@ -152,7 +153,11 @@ pub const AudioChannel = struct {
         };
 
         var volume = self.note_volume / 7.0;
+        var note_freq = self.note_freq;
         switch (self.note_effect) {
+            1 => { // SLIDE
+                note_freq = (self.note_freq - self.previous_note_freq) * self.current_note_duration + self.previous_note_freq;
+            },
             5 => { // FADE OUT
                 const nd = note_duration * self.sfx_speed;
                 const fade_out = (nd - self.current_note_duration) / nd;
@@ -164,7 +169,7 @@ pub const AudioChannel = struct {
 
         s = s * volume;
 
-        self.waveform_position += self.note_freq * Waveform.period / SAMPLE_RATE;
+        self.waveform_position += note_freq * Waveform.period / SAMPLE_RATE;
         if (self.waveform_position >= Waveform.period) {
             self.waveform_position -= Waveform.period;
         }
