@@ -221,8 +221,40 @@ const PauseMenu = struct {
 
 var pause_menu = PauseMenu.init();
 
+const ViewPort = struct {
+    x: i32,
+    y: i32,
+    scale: u32,
+
+    fn init() ViewPort {
+        return ViewPort{
+            .x = 0,
+            .y = 0,
+            .scale = 1,
+        };
+    }
+
+    fn adjust(self: *ViewPort, screen_w: i32, screen_h: i32) void {
+        const smallest = @min(screen_w, screen_h);
+        if (smallest > 0) {
+            self.scale = @divTrunc(@as(u32, @intCast(smallest)), 128);
+            self.x = @divTrunc(screen_w - @as(i32, @intCast(128 * self.scale)), 2);
+            self.y = @divTrunc(screen_h - @as(i32, @intCast(128 * self.scale)), 2);
+            std.log.info("view port adjusted to x: {}, y: {}, scale: {} from window w:{}, h:{}", .{ self.x, self.y, self.scale, screen_w, screen_h });
+        }
+    }
+};
+
+var view_port = ViewPort.init();
+
+fn resize_window_callback() void {
+    var w: c_int = 0;
+    var h: c_int = 0;
+    _ = sdl.SDL_GetWindowSize(screen, &w, &h);
+    view_port.adjust(w, h);
+}
+
 pub fn main() !void {
-    const scale: u32 = 5;
     std.debug.print("let's go\n", .{});
     if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_AUDIO) != 0) {
         sdl.SDL_Log("Unable to initialize SDL: %s", sdl.SDL_GetError());
@@ -231,7 +263,8 @@ pub fn main() !void {
     defer sdl.SDL_Quit();
     std.debug.print("SDL_Init done\n", .{});
 
-    screen = sdl.SDL_CreateWindow("Celeste Classic", sdl.SDL_WINDOWPOS_UNDEFINED, sdl.SDL_WINDOWPOS_UNDEFINED, scale * 128, scale * 128, sdl.SDL_WINDOW_OPENGL) orelse {
+    const window_flags = sdl.SDL_WINDOW_MAXIMIZED | sdl.SDL_WINDOW_RESIZABLE;
+    screen = sdl.SDL_CreateWindow("Celeste Clazzig", sdl.SDL_WINDOWPOS_UNDEFINED, sdl.SDL_WINDOWPOS_UNDEFINED, 128, 128, window_flags) orelse {
         sdl.SDL_Log("Unable to create window: %s", sdl.SDL_GetError());
         return error.SDLInitializationFailed;
     };
@@ -259,7 +292,7 @@ pub fn main() !void {
     P8.pal_reset();
     reload_textures(renderer);
 
-    _ = sdl.SDL_RenderSetScale(renderer, scale, scale);
+    resize_window_callback();
 
     _ = sdl.SDL_InitSubSystem(sdl.SDL_INIT_GAMECONTROLLER);
     var controller: ?*sdl.SDL_GameController = sdl_first_controller();
@@ -304,6 +337,14 @@ pub fn main() !void {
                 sdl.SDL_CONTROLLERDEVICEREMOVED => {
                     _ = sdl.SDL_GameControllerClose(controller);
                     controller = null;
+                },
+                sdl.SDL_WINDOWEVENT => {
+                    switch (event.window.event) {
+                        sdl.SDL_WINDOWEVENT_RESIZED, sdl.SDL_WINDOWEVENT_SIZE_CHANGED => {
+                            resize_window_callback();
+                        },
+                        else => {},
+                    }
                 },
                 else => {},
             }
@@ -397,10 +438,10 @@ fn draw_symbol(symbol: u8, x: c_int, y: c_int, col: usize) void {
     src_rect.h = @intFromFloat(8);
 
     var dst_rect: sdl.SDL_Rect = undefined;
-    dst_rect.x = x;
-    dst_rect.y = y;
-    dst_rect.w = @intCast(8);
-    dst_rect.h = @intCast(8);
+    dst_rect.x = x * @as(c_int, @intCast(view_port.scale)) + view_port.x;
+    dst_rect.y = y * @as(c_int, @intCast(view_port.scale)) + view_port.y;
+    dst_rect.w = @intCast(8 * view_port.scale);
+    dst_rect.h = @intCast(8 * view_port.scale);
     _ = sdl.SDL_RenderCopy(renderer, font_textures[col], &src_rect, &dst_rect);
 }
 
@@ -448,6 +489,17 @@ const P8 = struct {
         should_reload_gfx_texture = true;
     }
 
+    fn screen_rect(x: num, y: num, w: c_int, h: c_int) sdl.SDL_Rect {
+        const scale = @as(c_int, @intCast(view_port.scale));
+        var rect: sdl.SDL_Rect = undefined;
+        rect.x = @as(c_int, @intFromFloat(x - camera_x)) * scale + view_port.x;
+        rect.y = @as(c_int, @intFromFloat(y - camera_y)) * scale + view_port.y;
+        rect.w = w * scale;
+        rect.h = h * scale;
+        //std.log.debug("dest_rect({d:6.1}, {d:6.1}, {}, {}) -> {}", .{ x, y, w, h, rect });
+        return rect;
+    }
+
     // sprites
     fn spr(sprite: num, x: num, y: num, w: num, h: num, flip_x: bool, flip_y: bool) void {
         _ = w;
@@ -464,11 +516,7 @@ const P8 = struct {
             src_rect.w = @intCast(8);
             src_rect.h = @intCast(8);
 
-            var dst_rect: sdl.SDL_Rect = undefined;
-            dst_rect.x = @intFromFloat(x - camera_x);
-            dst_rect.y = @intFromFloat(y - camera_y);
-            dst_rect.w = @intCast(8);
-            dst_rect.h = @intCast(8);
+            const dst_rect = screen_rect(x, y, 8, 8);
 
             var flip: c_uint = 0;
             if (flip_x) {
@@ -490,40 +538,35 @@ const P8 = struct {
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
         _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
 
-        _ = sdl.SDL_RenderDrawLine(renderer, @intFromFloat(x1 - camera_x), @intFromFloat(y1 - camera_y), @intFromFloat(x2 - camera_x), @intFromFloat(y2 - camera_y));
+        if (x1 != x2) {
+            std.log.err("only vertical lines are supported ({d:6.1},{d:6.1})({d:6.1},{d:6.1})", .{ x1, y1, x2, y2 });
+            return;
+        }
+
+        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x1, @min(y1, y2), 1, @as(c_int, @intFromFloat(y2 - y1 + 1))));
     }
 
     fn rectfill(x1: num, y1: num, x2: num, y2: num, col: num) void {
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
         _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
 
-        const x = x1 - camera_x;
-        const y = y1 - camera_y;
-        const w = x2 - x1 + 1;
-        const h = y2 - y1 + 1;
-        var rect: sdl.SDL_Rect = undefined;
-        rect.x = @intFromFloat(x);
-        rect.y = @intFromFloat(y);
-        rect.w = @intFromFloat(w);
-        rect.h = @intFromFloat(h);
+        const rect = screen_rect(x1, y1, @intFromFloat(x2 - x1 + 1), @intFromFloat(y2 - y1 + 1));
         _ = sdl.SDL_RenderFillRect(renderer, &rect);
     }
 
     fn circfill(x: num, y: num, r: num, col: num) void {
-        const xi: c_int = @intFromFloat(x - camera_x);
-        const yi: c_int = @intFromFloat(y - camera_y);
         const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
         _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
         if (r <= 1) {
-            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi, .w = 3, .h = 1 });
-            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi, .y = yi - 1, .w = 1, .h = 3 });
+            _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 1, y, 3, 1));
+            _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x, y - 1, 1, 3));
         } else if (r <= 2) {
-            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 2, .y = yi - 1, .w = 5, .h = 3 });
-            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi - 2, .w = 3, .h = 5 });
+            _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 2, y - 1, 5, 3));
+            _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 1, y - 2, 3, 5));
         } else if (r <= 3) {
-            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 3, .y = yi - 1, .w = 7, .h = 3 });
-            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 1, .y = yi - 3, .w = 3, .h = 7 });
-            _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = xi - 2, .y = yi - 2, .w = 5, .h = 5 });
+            _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 3, y - 1, 7, 3));
+            _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 1, y - 3, 3, 7));
+            _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 2, y - 2, 5, 5));
         }
     }
 
@@ -573,11 +616,7 @@ const P8 = struct {
                         src_rect.w = @intCast(8);
                         src_rect.h = @intCast(8);
 
-                        var dst_rect: sdl.SDL_Rect = undefined;
-                        dst_rect.x = @intFromFloat(screen_x + x * 8 - camera_x);
-                        dst_rect.y = @intFromFloat(screen_y + y * 8 - camera_y);
-                        dst_rect.w = @intCast(8);
-                        dst_rect.h = @intCast(8);
+                        const dst_rect = screen_rect(screen_x + x * 8, screen_y + y * 8, 8, 8);
 
                         _ = sdl.SDL_RenderCopy(renderer, gfx_texture, &src_rect, &dst_rect);
                     }
