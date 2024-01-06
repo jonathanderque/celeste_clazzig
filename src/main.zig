@@ -112,6 +112,13 @@ fn reload_textures(r: *Renderer) void {
 }
 
 var button_state: u8 = 0;
+var previous_button_state: u8 = 0;
+
+fn released_key(key: P8.num) bool {
+    const k: u3 = @intFromFloat(key);
+    const mask: u8 = @as(u8, 1) << k;
+    return (button_state & mask == 0) and (previous_button_state & mask != 0);
+}
 
 fn sdl_first_controller() ?*sdl.SDL_GameController {
     const controller_count = sdl.SDL_NumJoysticks();
@@ -141,6 +148,78 @@ pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len
         snd[i] = @as(c_short, @intFromFloat(sample * volume * 32767));
     }
 }
+
+const PauseMenu = struct {
+    pause: bool,
+    quit: bool,
+    option_index: usize,
+
+    fn init() PauseMenu {
+        return PauseMenu{
+            .pause = false,
+            .quit = false,
+            .option_index = 0,
+        };
+    }
+
+    fn toggle_pause(self: *PauseMenu) void {
+        self.pause = !self.pause;
+        audio_engine.toggle_pause();
+        if (self.pause) {
+            self.option_index = 0;
+        }
+    }
+
+    fn update(self: *PauseMenu) void {
+        if (!self.pause) {
+            return;
+        }
+        if (released_key(k_up)) {
+            if (self.option_index == 0) {
+                self.option_index = option_ys.len - 1;
+            } else {
+                self.option_index -= 1;
+            }
+        }
+        if (released_key(k_down)) {
+            self.option_index += 1;
+            if (self.option_index >= option_ys.len) {
+                self.option_index = 0;
+            }
+        }
+        if (released_key(k_jump) or released_key(k_dash)) {
+            switch (self.option_index) {
+                0 => {
+                    self.toggle_pause();
+                },
+                1 => {
+                    self.quit = true;
+                },
+                else => unreachable,
+            }
+        }
+    }
+
+    const cursor_symbol = 143;
+    const option_ys = [_]u8{ 12, 19 };
+    fn draw(self: *PauseMenu) void {
+        if (!self.pause) {
+            return;
+        }
+
+        const title_x = 6;
+        const cursor_x = title_x;
+        const option_x = title_x + 8;
+
+        P8.rectfill(title_x - 2, 4, 75, 30, 0);
+        P8.print("celeste clazzig", title_x, 5, 7);
+        P8.print("RESUME", option_x, option_ys[0], 7);
+        P8.print("QUIT", option_x, option_ys[1], 7);
+        draw_symbol(cursor_symbol, cursor_x, option_ys[self.option_index], 7);
+    }
+};
+
+var pause_menu = PauseMenu.init();
 
 pub fn main() !void {
     const scale: u32 = 5;
@@ -205,7 +284,6 @@ pub fn main() !void {
     std.debug.print("opened audio device {}\n", .{audio_device});
     audio_engine.set_data(cart_data.music, cart_data.sfx);
 
-    var quit = false;
     var should_init = true;
 
     var nextFrame = sdl.SDL_GetPerformanceCounter();
@@ -213,12 +291,12 @@ pub fn main() !void {
     var fps: u32 = 0;
     const target_fps = 30;
 
-    while (!quit) {
+    while (!pause_menu.quit) {
         var event: sdl.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event) != 0) {
             switch (event.type) {
                 sdl.SDL_QUIT => {
-                    quit = true;
+                    pause_menu.quit = true;
                 },
                 sdl.SDL_CONTROLLERDEVICEADDED => {
                     controller = sdl_first_controller();
@@ -231,9 +309,6 @@ pub fn main() !void {
             }
         }
         const current_key_states = sdl.SDL_GetKeyboardState(null);
-        if (current_key_states[sdl.SDL_SCANCODE_ESCAPE] != 0) {
-            quit = true;
-        }
 
         button_state = 0;
         var key_left: u8 = if (current_key_states[sdl.SDL_SCANCODE_LEFT] != 0) (1 << k_left) else 0;
@@ -242,6 +317,7 @@ pub fn main() !void {
         var key_down: u8 = if (current_key_states[sdl.SDL_SCANCODE_DOWN] != 0) (1 << k_down) else 0;
         var key_jump: u8 = if (current_key_states[sdl.SDL_SCANCODE_Z] != 0) (1 << k_jump) else 0;
         var key_dash: u8 = if (current_key_states[sdl.SDL_SCANCODE_X] != 0) (1 << k_dash) else 0;
+        var key_menu: u8 = if (current_key_states[sdl.SDL_SCANCODE_ESCAPE] != 0) (1 << k_menu) else 0;
 
         if (current_key_states[sdl.SDLK_z] != 0) {
             key_jump = 1 << k_jump;
@@ -269,18 +345,29 @@ pub fn main() !void {
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_B) != 0) {
                 key_dash = 1 << k_dash;
             }
+            if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_START) != 0) {
+                key_menu = 1 << k_menu;
+            }
         }
 
-        button_state = key_left | key_right | key_up | key_down | key_up | key_jump | key_dash;
+        button_state = key_left | key_right | key_up | key_down | key_up | key_jump | key_dash | key_menu;
 
         if (sdl.SDL_GetPerformanceCounter() >= nextFrame) {
             while (sdl.SDL_GetPerformanceCounter() >= nextFrame) {
+                if (released_key(k_menu)) {
+                    pause_menu.toggle_pause();
+                }
                 // update
                 if (should_init) {
                     _init();
                     should_init = false;
                 }
-                _update();
+                if (pause_menu.pause) {
+                    pause_menu.update();
+                } else {
+                    _update();
+                }
+                previous_button_state = button_state;
                 nextFrame += sdl.SDL_GetPerformanceFrequency() / target_fps;
             }
             fps += 1;
@@ -290,12 +377,31 @@ pub fn main() !void {
                 nextSecond += sdl.SDL_GetPerformanceFrequency();
             }
 
-            _draw();
+            if (pause_menu.pause) {
+                pause_menu.draw();
+            } else {
+                _draw();
+            }
             sdl.SDL_RenderPresent(renderer);
         } else {
             sdl.SDL_Delay(1);
         }
     }
+}
+
+fn draw_symbol(symbol: u8, x: c_int, y: c_int, col: usize) void {
+    var src_rect: sdl.SDL_Rect = undefined;
+    src_rect.x = @intCast(8 * (symbol % 16));
+    src_rect.y = @intCast(8 * (symbol / 16));
+    src_rect.w = @intFromFloat(8);
+    src_rect.h = @intFromFloat(8);
+
+    var dst_rect: sdl.SDL_Rect = undefined;
+    dst_rect.x = x;
+    dst_rect.y = y;
+    dst_rect.w = @intCast(8);
+    dst_rect.h = @intCast(8);
+    _ = sdl.SDL_RenderCopy(renderer, font_textures[col], &src_rect, &dst_rect);
 }
 
 const p8tile = i8;
@@ -430,18 +536,7 @@ const P8 = struct {
             var c = cconst;
             c = c & 0x7F;
 
-            var src_rect: sdl.SDL_Rect = undefined;
-            src_rect.x = @intCast(8 * (c % 16));
-            src_rect.y = @intCast(8 * (c / 16));
-            src_rect.w = @intFromFloat(8);
-            src_rect.h = @intFromFloat(8);
-
-            var dst_rect: sdl.SDL_Rect = undefined;
-            dst_rect.x = x;
-            dst_rect.y = y;
-            dst_rect.w = @intCast(8);
-            dst_rect.h = @intCast(8);
-            _ = sdl.SDL_RenderCopy(renderer, font_textures[col_idx], &src_rect, &dst_rect);
+            draw_symbol(c, x, y, col_idx);
 
             x = x + 4;
         }
@@ -583,6 +678,7 @@ const k_up: P8.num = 2;
 const k_down: P8.num = 3;
 const k_jump: P8.num = 4;
 const k_dash: P8.num = 5;
+const k_menu: P8.num = 6;
 
 // entry point //
 /////////////////

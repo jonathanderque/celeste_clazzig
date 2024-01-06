@@ -216,6 +216,7 @@ pub const CHANNEL_MUSIC_END: usize = 4;
 pub const CHANNEL_SFX_START: usize = 4;
 pub const CHANNEL_SFX_END: usize = 5;
 pub const AudioEngine = struct {
+    pause: bool,
     music_data: []const u8 = undefined,
     sfx_data: []const u8 = undefined,
     channels: [CHANNEL_COUNT]AudioChannel,
@@ -231,8 +232,13 @@ pub const AudioEngine = struct {
             channels[i] = AudioChannel.init();
         }
         return AudioEngine{
+            .pause = false,
             .channels = channels,
         };
+    }
+
+    pub fn toggle_pause(self: *AudioEngine) void {
+        self.pause = !self.pause;
     }
 
     pub fn set_data(self: *AudioEngine, music_data: []const u8, sfx_data: []const u8) void {
@@ -256,6 +262,9 @@ pub const AudioEngine = struct {
     }
 
     pub fn sample(self: *AudioEngine) f64 {
+        if (self.pause) {
+            return 0;
+        }
         var playing_count: f64 = 0;
         for (0..CHANNEL_COUNT) |i| {
             if (self.channels[i].playing) {
