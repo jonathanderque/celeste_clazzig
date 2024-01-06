@@ -265,8 +265,8 @@ fn draw_view_port_borders() void {
     _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
     _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = 0, .y = 0, .w = view_port.x, .h = view_port.window_h });
     _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = view_port.window_w - view_port.x, .y = 0, .w = view_port.x, .h = view_port.window_h });
-    _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = 0, .y = 0, .w = view_port.window_h, .h = view_port.y });
-    _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = 0, .y = view_port.window_h - view_port.y, .w = view_port.window_h, .h = view_port.y });
+    _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = 0, .y = 0, .w = view_port.window_w, .h = view_port.y });
+    _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = 0, .y = view_port.window_h - view_port.y, .w = view_port.window_w, .h = view_port.y });
 }
 
 pub fn main() !void {
