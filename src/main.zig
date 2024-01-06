@@ -225,22 +225,28 @@ const ViewPort = struct {
     x: i32,
     y: i32,
     scale: u32,
+    window_w: i32,
+    window_h: i32,
 
     fn init() ViewPort {
         return ViewPort{
             .x = 0,
             .y = 0,
             .scale = 1,
+            .window_w = 128,
+            .window_h = 128,
         };
     }
 
-    fn adjust(self: *ViewPort, screen_w: i32, screen_h: i32) void {
-        const smallest = @min(screen_w, screen_h);
+    fn adjust(self: *ViewPort, window_w: i32, window_h: i32) void {
+        self.window_w = window_w;
+        self.window_h = window_h;
+        const smallest = @min(window_w, window_h);
         if (smallest > 0) {
             self.scale = @divTrunc(@as(u32, @intCast(smallest)), 128);
-            self.x = @divTrunc(screen_w - @as(i32, @intCast(128 * self.scale)), 2);
-            self.y = @divTrunc(screen_h - @as(i32, @intCast(128 * self.scale)), 2);
-            std.log.info("view port adjusted to x: {}, y: {}, scale: {} from window w:{}, h:{}", .{ self.x, self.y, self.scale, screen_w, screen_h });
+            self.x = @divTrunc(window_w - @as(i32, @intCast(128 * self.scale)), 2);
+            self.y = @divTrunc(window_h - @as(i32, @intCast(128 * self.scale)), 2);
+            // std.log.info("view port adjusted to x: {}, y: {}, scale: {} from window w:{}, h:{}", .{ self.x, self.y, self.scale, window_w, window_h });
         }
     }
 };
@@ -252,6 +258,15 @@ fn resize_window_callback() void {
     var h: c_int = 0;
     _ = sdl.SDL_GetWindowSize(screen, &w, &h);
     view_port.adjust(w, h);
+}
+
+fn draw_view_port_borders() void {
+    const c = palette[0];
+    _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
+    _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = 0, .y = 0, .w = view_port.x, .h = view_port.window_h });
+    _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = view_port.window_w - view_port.x, .y = 0, .w = view_port.x, .h = view_port.window_h });
+    _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = 0, .y = 0, .w = view_port.window_h, .h = view_port.y });
+    _ = sdl.SDL_RenderFillRect(renderer, &sdl.SDL_Rect{ .x = 0, .y = view_port.window_h - view_port.y, .w = view_port.window_h, .h = view_port.y });
 }
 
 pub fn main() !void {
@@ -422,6 +437,7 @@ pub fn main() !void {
                 pause_menu.draw();
             } else {
                 _draw();
+                draw_view_port_borders();
             }
             sdl.SDL_RenderPresent(renderer);
         } else {
