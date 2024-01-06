@@ -203,6 +203,7 @@ pub fn main() !void {
     }
     sdl.SDL_PauseAudioDevice(audio_device, 0);
     std.debug.print("opened audio device {}\n", .{audio_device});
+    audio_engine.set_data(cart_data.music, cart_data.sfx);
 
     var quit = false;
     var should_init = true;
@@ -318,16 +319,12 @@ const P8 = struct {
 
     fn sfx(id: num) void {
         const sfx_id: usize = @intFromFloat(id);
-        const sfx_index = sfx_id * 68;
-        const sfx_data = cart_data.sfx[sfx_index .. sfx_index + 68];
-        audio_engine.play_sfx(sfx_id, sfx_data);
+        audio_engine.play_sfx(sfx_id);
     }
 
-    fn music(a: num, b: num, c: num) void {
-        // TODO
-        _ = a;
-        _ = b;
-        _ = c;
+    fn music(id: num, fade: num, mask: num) void {
+        const music_id: isize = @intFromFloat(id);
+        audio_engine.play_music(music_id, @intFromFloat(fade), @intFromFloat(mask));
     }
 
     // Lua function pal()

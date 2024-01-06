@@ -101,6 +101,14 @@ const AudioChannel = struct {
         };
     }
 
+    pub fn stop(self: *AudioChannel) void {
+        self.playing = false;
+    }
+
+    pub fn finished_playing(self: *AudioChannel) bool {
+        return self.current_note_index >= 32;
+    }
+
     pub fn play_sfx(self: *AudioChannel, sfx_id: usize, sfx_data: []const u8) void {
         self.sfx_id = sfx_id;
         self.sfx_data = sfx_data;
@@ -114,6 +122,11 @@ const AudioChannel = struct {
 
     pub fn extract_sfx_params(self: *AudioChannel) void {
         self.sfx_speed = @floatFromInt(self.sfx_data[65]);
+        const loop_start = self.sfx_data[66];
+        const loop_end = self.sfx_data[67];
+        if (loop_start > 0 and loop_end > loop_start) {
+            std.log.err("TODO: sfx loops are not implemented (sfx {}, loop: {} -> {})", .{ self.sfx_id, loop_start, loop_end });
+        }
     }
 
     pub fn assert_fx(effect: u8) void {
@@ -180,7 +193,7 @@ const AudioChannel = struct {
         if (self.current_note_duration >= note_duration * self.sfx_speed) {
             self.current_note_duration -= note_duration * self.sfx_speed;
             self.current_note_index += 1;
-            if (self.current_note_index >= 32) {
+            if (self.finished_playing()) {
                 self.playing = false;
             } else {
                 self.extract_note_params();
@@ -191,9 +204,26 @@ const AudioChannel = struct {
     }
 };
 
-pub const CHANNEL_COUNT: usize = 4;
+const MusicFrameFlags = struct {
+    loop_start: bool,
+    loop_end: bool,
+    stop: bool,
+};
+
+pub const CHANNEL_COUNT: usize = 5;
+pub const CHANNEL_MUSIC_START: usize = 0;
+pub const CHANNEL_MUSIC_END: usize = 4;
+pub const CHANNEL_SFX_START: usize = 4;
+pub const CHANNEL_SFX_END: usize = 5;
 pub const AudioEngine = struct {
+    music_data: []const u8 = undefined,
+    sfx_data: []const u8 = undefined,
     channels: [CHANNEL_COUNT]AudioChannel,
+
+    // music attributes
+    music_playing: bool = false,
+    music_id: usize = 0,
+    tracked_channel: usize = 0, // monitored channel used to determine when to go to the next music pattern
 
     pub fn init() AudioEngine {
         var channels: [CHANNEL_COUNT]AudioChannel = undefined;
@@ -202,6 +232,26 @@ pub const AudioEngine = struct {
         }
         return AudioEngine{
             .channels = channels,
+        };
+    }
+
+    pub fn set_data(self: *AudioEngine, music_data: []const u8, sfx_data: []const u8) void {
+        self.music_data = music_data;
+        self.sfx_data = sfx_data;
+    }
+
+    fn extract_music_frame_flags(self: *AudioEngine, music_id: usize) MusicFrameFlags {
+        const music_index = music_id * 4;
+        const music_frame = self.music_data[music_index .. music_index + 4];
+
+        const flag_mask = 0b1000_0000;
+        const loop_start = (music_frame[0] & flag_mask) != 0;
+        const loop_end = (music_frame[1] & flag_mask) != 0;
+        const stop = (music_frame[2] & flag_mask) != 0;
+        return MusicFrameFlags{
+            .loop_start = loop_start,
+            .loop_end = loop_end,
+            .stop = stop,
         };
     }
 
@@ -217,17 +267,96 @@ pub const AudioEngine = struct {
         for (0..CHANNEL_COUNT) |i| {
             result += channel_blend * self.channels[i].sample();
         }
+
+        if (self.music_playing) {
+            if (self.channels[self.tracked_channel].finished_playing()) {
+                self.music_playing = false;
+                var music_frame_flags = self.extract_music_frame_flags(self.music_id);
+                if (!music_frame_flags.stop) {
+                    if (music_frame_flags.loop_end) {
+                        var m_id = self.music_id;
+
+                        // "rewinding"
+                        while (m_id >= 0 and music_frame_flags.loop_start == false) {
+                            music_frame_flags = self.extract_music_frame_flags(m_id);
+                            if (music_frame_flags.loop_start) {
+                                self.play_music(@intCast(m_id), 0, 0); // TODO preserve mask?
+                                break;
+                            }
+                            if (m_id == 0) {
+                                break;
+                            } else {
+                                m_id -= 1;
+                            }
+                        }
+                    } else {
+                        self.play_music(@intCast(self.music_id + 1), 0, 0); // TODO preserve mask?
+                    }
+                }
+            } else {
+                for (CHANNEL_MUSIC_START..CHANNEL_MUSIC_END) |channel| {
+                    if (channel != self.tracked_channel and self.channels[channel].finished_playing()) {
+                        self.play_sfx_on_channel(self.channels[channel].sfx_id, channel);
+                    }
+                }
+            }
+        }
         return result;
     }
 
-    pub fn play_sfx(self: *AudioEngine, sfx_id: usize, sfx_data: []const u8) void {
-        var channel: usize = 0;
-        for (0..CHANNEL_COUNT) |i| {
+    fn play_sfx_on_channel(self: *AudioEngine, sfx_id: usize, channel_id: usize) void {
+        const sfx_index = sfx_id * 68;
+        const data = self.sfx_data[sfx_index .. sfx_index + 68];
+        self.channels[channel_id].play_sfx(sfx_id, data);
+    }
+
+    pub fn play_sfx(self: *AudioEngine, sfx_id: usize) void {
+        var channel: usize = CHANNEL_SFX_START;
+        for (CHANNEL_SFX_START..CHANNEL_SFX_END) |i| {
             if (self.channels[i].playing == false or self.channels[i].sfx_id == sfx_id) {
                 channel = i;
                 break;
             }
         }
-        self.channels[channel].play_sfx(sfx_id, sfx_data);
+        self.play_sfx_on_channel(sfx_id, channel);
+    }
+
+    pub fn play_music(self: *AudioEngine, music_id: isize, fade: u32, mask: u32) void {
+        _ = fade;
+        _ = mask;
+        for (CHANNEL_MUSIC_START..CHANNEL_MUSIC_END) |channel| {
+            self.channels[channel].stop();
+        }
+
+        self.music_playing = false;
+
+        if (music_id == -1) {
+            return;
+        }
+
+        const music_index = @as(usize, @intCast(music_id)) * 4;
+        const music_frame = self.music_data[music_index .. music_index + 4];
+
+        for (CHANNEL_MUSIC_START..CHANNEL_MUSIC_END) |channel| {
+            const sfx = music_frame[channel];
+
+            // bit 6 == 0 is required to play music
+            if (sfx & (1 << 6) == 0) {
+                const sfx_id: usize = sfx & 0b111111;
+                self.play_sfx_on_channel(sfx_id, channel);
+                if (self.music_playing == false) { // this is here so that we can track the 1st active channel
+                    self.music_id = @intCast(music_id);
+                    self.music_playing = true;
+                }
+            }
+        }
+        self.tracked_channel = 0;
+        var speed: f64 = 0;
+        for (CHANNEL_MUSIC_START..CHANNEL_MUSIC_END) |channel| {
+            if (self.channels[channel].sfx_speed > speed) {
+                speed = self.channels[channel].sfx_speed;
+                self.tracked_channel = channel;
+            }
+        }
     }
 };
