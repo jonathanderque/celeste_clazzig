@@ -30,13 +30,13 @@ At this point, this has only be tested on Linux.
 
 # Controls
 
-* Keyboard controls
-** arrows to move
-** Z to jump (Z assumes a qwerty keyboard. On non-qwerty keyboards this is the left-most letter key on the bottom row)
-** X to dash (letter key next to the jump key on non-qwerty keyboards)
-** Escape to invoke the Pause menu
+* Keyboard controls:
+  * arrows to move
+  * Z to jump (Z assumes a qwerty keyboard. On non-qwerty keyboards this is the left-most letter key on the bottom row)
+  * X to dash (letter key next to the jump key on non-qwerty keyboards)
+  * Escape to invoke the Pause menu
 
-* Gamepad controls should be self explicit. X-Input gamepads work well. Dualshock 4 controllers work partially (the game can be played but the option menu is not working).
+* Gamepad controls should be self explanatory. X-Input gamepads work well. Dualshock 4 controllers work partially (the game can be played but the option menu is not working).
 
 # Credits
 
