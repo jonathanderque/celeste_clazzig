@@ -129,11 +129,25 @@ const AudioChannel = struct {
         }
     }
 
+    var assert_fx_displayed = [8]bool{
+        false, // no effect
+        false, // slide
+        false, // vibrato
+        false, // drop
+        false, // fade_in
+        false, // fade_out
+        false, // arp_fast
+        false, // arp_slow
+    };
+
     pub fn assert_fx(effect: u8) void {
         switch (effect) {
             0, 1, 5 => {},
             else => {
-                std.log.err("TODO: unknown effect {} not implemented", .{effect});
+                if (!assert_fx_displayed[effect]) {
+                    std.log.err("TODO: unknown effect {} not implemented", .{effect});
+                    assert_fx_displayed[effect] = true;
+                }
             },
         }
     }
