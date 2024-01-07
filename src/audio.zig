@@ -142,7 +142,7 @@ const AudioChannel = struct {
 
     pub fn assert_fx(effect: u8) void {
         switch (effect) {
-            0, 1, 5 => {},
+            0, 1, 4, 5 => {},
             else => {
                 if (!assert_fx_displayed[effect]) {
                     std.log.err("TODO: unknown effect {} not implemented", .{effect});
@@ -186,6 +186,11 @@ const AudioChannel = struct {
         switch (self.note_effect) {
             1 => { // SLIDE
                 note_freq = (self.note_freq - self.previous_note_freq) * self.current_note_duration + self.previous_note_freq;
+            },
+            4 => { // FADE IN
+                const nd = note_duration * self.sfx_speed;
+                const fade_in = self.current_note_duration / nd;
+                volume = volume * fade_in;
             },
             5 => { // FADE OUT
                 const nd = note_duration * self.sfx_speed;
