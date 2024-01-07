@@ -1,4 +1,52 @@
 const std = @import("std");
+const Step = std.Build.Step;
+
+pub fn download_carts(step: *Step, prog_node: *std.Progress.Node) !void {
+    _ = step;
+    _ = prog_node;
+
+    const http = std.http;
+
+    // find a way to reuse b.allocator instead?
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer std.debug.assert(gpa.deinit() == .ok);
+    const allocator = gpa.allocator();
+    // TODO: generate file!
+
+    var http_client = http.Client{ .allocator = allocator };
+    defer http_client.deinit();
+
+    var http_headers = std.http.Headers{ .allocator = allocator };
+    defer http_headers.deinit();
+    try http_headers.append("accept", "*/*");
+
+    const uri = std.Uri.parse("https://www.lexaloffle.com/bbs/cposts/1/15133.p8.png") catch unreachable;
+
+    var http_request = try http_client.request(.GET, uri, http_headers, .{});
+    defer http_request.deinit();
+
+    try http_request.start();
+    try http_request.wait();
+
+    const cart = try http_request.reader().readAllAlloc(allocator, 48 * 1024);
+    defer allocator.free(cart);
+
+    var cart_file = try std.fs.cwd().createFile("src/cart/15133.p8.png", .{ .read = true });
+    defer cart_file.close();
+
+    try cart_file.writeAll(cart);
+}
+
+pub fn create_cart_download_step(b: *std.build.Builder) *Step {
+    const self = b.allocator.create(Step) catch @panic("OOM");
+    self.* = Step.init(.{
+        .id = Step.Id.custom,
+        .owner = b,
+        .name = "download carts",
+        .makeFn = download_carts,
+    });
+    return self;
+}
 
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
@@ -15,6 +63,12 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    //// Cart download
+    var cart_download_step = create_cart_download_step(b);
+    const cart_download_run_step = b.step("download-cart", "Download celeste classic cart");
+    cart_download_run_step.dependOn(cart_download_step);
+
+    //// Cart asset extraction
     const cart_extractor = b.addExecutable(.{
         .name = "cart_extractor",
         // In this case the main source file is merely a path, however, in more
@@ -35,6 +89,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(cart_extractor);
     const extract_cart = b.addRunArtifact(cart_extractor);
 
+    //// Game
     const game = b.addExecutable(.{
         .name = "celeste_clazzig",
         // In this case the main source file is merely a path, however, in more
