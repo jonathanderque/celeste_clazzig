@@ -153,6 +153,7 @@ const PauseMenu = struct {
     pause: bool,
     quit: bool,
     fullscreen: bool,
+    screen_shake: bool,
 
     option_index: usize,
 
@@ -161,6 +162,7 @@ const PauseMenu = struct {
             .pause = false,
             .quit = false,
             .fullscreen = false,
+            .screen_shake = false,
             .option_index = 0,
         };
     }
@@ -202,13 +204,16 @@ const PauseMenu = struct {
                     self.fullscreen = !self.fullscreen;
                     set_fullscreen(self.fullscreen);
                 },
+                3 => {
+                    self.screen_shake = !self.screen_shake;
+                },
                 else => unreachable,
             }
         }
     }
 
     const cursor_symbol = 143;
-    const option_ys = [_]u8{ 12, 19, 40 };
+    const option_ys = [_]u8{ 12, 19, 40, 47 };
     fn draw(self: *PauseMenu) void {
         if (!self.pause) {
             return;
@@ -218,7 +223,7 @@ const PauseMenu = struct {
         const cursor_x = title_x;
         const option_x = title_x + 8;
 
-        P8.rectfill(title_x - 2, 4, 75, 50, 0);
+        P8.rectfill(title_x - 2, 4, 85, 60, 0);
         P8.print("celeste clazzig", title_x, 5, 7);
         P8.print("RESUME", option_x, option_ys[0], 7);
         P8.print("QUIT", option_x, option_ys[1], 7);
@@ -227,6 +232,11 @@ const PauseMenu = struct {
             P8.print("FULLSCREEN: on", option_x, option_ys[2], 7);
         } else {
             P8.print("FULLSCREEN: off", option_x, option_ys[2], 7);
+        }
+        if (self.screen_shake) {
+            P8.print("SCREEN SHAKE: on", option_x, option_ys[3], 7);
+        } else {
+            P8.print("SCREEN SHAKE: off", option_x, option_ys[3], 7);
         }
         draw_symbol(cursor_symbol, cursor_x, option_ys[self.option_index], 7);
     }
@@ -624,9 +634,8 @@ const P8 = struct {
     // screen
     var camera_x: num = 0;
     var camera_y: num = 0;
-    var camera_shake_option: bool = false;
     fn camera(x: num, y: num) void {
-        if (camera_shake_option) {
+        if (pause_menu.screen_shake) {
             camera_x = x;
             camera_y = y;
         }
