@@ -152,12 +152,15 @@ pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len
 const PauseMenu = struct {
     pause: bool,
     quit: bool,
+    fullscreen: bool,
+
     option_index: usize,
 
     fn init() PauseMenu {
         return PauseMenu{
             .pause = false,
             .quit = false,
+            .fullscreen = false,
             .option_index = 0,
         };
     }
@@ -195,13 +198,17 @@ const PauseMenu = struct {
                 1 => {
                     self.quit = true;
                 },
+                2 => {
+                    self.fullscreen = !self.fullscreen;
+                    set_fullscreen(self.fullscreen);
+                },
                 else => unreachable,
             }
         }
     }
 
     const cursor_symbol = 143;
-    const option_ys = [_]u8{ 12, 19 };
+    const option_ys = [_]u8{ 12, 19, 40 };
     fn draw(self: *PauseMenu) void {
         if (!self.pause) {
             return;
@@ -211,10 +218,16 @@ const PauseMenu = struct {
         const cursor_x = title_x;
         const option_x = title_x + 8;
 
-        P8.rectfill(title_x - 2, 4, 75, 30, 0);
+        P8.rectfill(title_x - 2, 4, 75, 50, 0);
         P8.print("celeste clazzig", title_x, 5, 7);
         P8.print("RESUME", option_x, option_ys[0], 7);
         P8.print("QUIT", option_x, option_ys[1], 7);
+        P8.print("graphics options", title_x, option_ys[2] - 7, 7);
+        if (self.fullscreen) {
+            P8.print("FULLSCREEN: on", option_x, option_ys[2], 7);
+        } else {
+            P8.print("FULLSCREEN: off", option_x, option_ys[2], 7);
+        }
         draw_symbol(cursor_symbol, cursor_x, option_ys[self.option_index], 7);
     }
 };
@@ -258,6 +271,12 @@ fn resize_window_callback() void {
     var h: c_int = 0;
     _ = sdl.SDL_GetWindowSize(screen, &w, &h);
     view_port.adjust(w, h);
+}
+
+fn set_fullscreen(fullscreen: bool) void {
+    const flag: u32 = if (fullscreen) sdl.SDL_WINDOW_FULLSCREEN_DESKTOP else 0;
+    _ = sdl.SDL_SetWindowFullscreen(screen, flag);
+    resize_window_callback();
 }
 
 fn draw_view_port_borders() void {
@@ -435,6 +454,7 @@ pub fn main() !void {
 
             if (pause_menu.pause) {
                 pause_menu.draw();
+                draw_view_port_borders();
             } else {
                 _draw();
                 draw_view_port_borders();
