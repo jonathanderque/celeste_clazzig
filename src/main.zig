@@ -371,6 +371,8 @@ pub fn main() !void {
     var fps: u32 = 0;
     const target_fps = 30;
 
+    const SDLCeleste = celeste.celeste(p8_api);
+
     while (!pause_menu.quit) {
         var event: sdl.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&event) != 0) {
@@ -447,13 +449,13 @@ pub fn main() !void {
                 }
                 // update
                 if (should_init) {
-                    celeste._init(p8_api);
+                    SDLCeleste._init();
                     should_init = false;
                 }
                 if (pause_menu.pause) {
                     pause_menu.update();
                 } else {
-                    celeste._update(p8_api);
+                    SDLCeleste._update();
                 }
                 previous_button_state = button_state;
                 nextFrame += sdl.SDL_GetPerformanceFrequency() / target_fps;
@@ -469,7 +471,7 @@ pub fn main() !void {
                 pause_menu.draw();
                 draw_view_port_borders();
             } else {
-                celeste._draw(p8_api);
+                SDLCeleste._draw();
                 draw_view_port_borders();
             }
             sdl.SDL_RenderPresent(renderer);
