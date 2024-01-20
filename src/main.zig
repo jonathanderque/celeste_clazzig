@@ -41,6 +41,7 @@ var palette: [16]sdl.SDL_Color = undefined;
 var screen: *Window = undefined;
 var renderer: *Renderer = undefined;
 var gfx_texture: *Texture = undefined;
+var base_font_textures: [16]*Texture = undefined;
 var font_textures: [16]*Texture = undefined;
 var should_reload_gfx_texture: bool = false;
 
@@ -49,7 +50,7 @@ fn load_texture(r: *Renderer, spritesheet: []const u8, width: usize, height: usi
     defer sdl.SDL_FreeSurface(surface);
 
     const format = surface.*.format;
-    const c = base_palette[0];
+    const c = palette[0];
     const color_key = sdl.SDL_MapRGB(format, c.r, c.g, c.b);
     _ = sdl.SDL_SetColorKey(surface, sdl.SDL_TRUE, color_key);
 
@@ -87,12 +88,16 @@ fn load_texture(r: *Renderer, spritesheet: []const u8, width: usize, height: usi
 
 fn load_font_textures(r: *Renderer) void {
     var i: usize = 0;
-    while (i < font_textures.len) : (i += 1) {
-        p8_api.pal_reset();
-        palette[0] = palette[@mod(1 + i, 16)];
-        palette[7] = palette[@mod(i, 16)];
+    while (i < base_font_textures.len) : (i += 1) {
+        if (i == 0) {
+            // HACK: needed for Old-Site Memorial message:
+            // we really want palette[0] here, but black on black does not work
+            palette[7] = sdl.SDL_Color{ .r = 0x01, .g = 0x00, .b = 0x00, .a = 0xff };
+        } else {
+            palette[7] = base_palette[@mod(i, 16)];
+        }
         if (load_texture(r, &font, 128, 85)) |texture| {
-            font_textures[i] = texture;
+            base_font_textures[i] = texture;
         } else {
             sdl.SDL_Log("Unable to create texture from surface: %s", sdl.SDL_GetError());
         }
@@ -332,7 +337,7 @@ pub fn main() !void {
     // Textures
     load_font_textures(renderer);
     defer {
-        for (font_textures) |texture| {
+        for (base_font_textures) |texture| {
             sdl.SDL_DestroyTexture(texture);
         }
     }
@@ -513,6 +518,7 @@ fn p8_pal_reset() void {
     var i: usize = 0;
     while (i < palette.len) : (i += 1) {
         palette[i] = base_palette[i];
+        font_textures[i] = base_font_textures[i];
     }
     should_reload_gfx_texture = true;
 }
@@ -520,6 +526,7 @@ fn p8_pal_reset() void {
 fn p8_pal(x: P8API.num, y: P8API.num) void {
     const xi: usize = @intFromFloat(x);
     palette[xi] = base_palette[@intFromFloat(y)];
+    font_textures[xi] = base_font_textures[@intFromFloat(y)];
     should_reload_gfx_texture = true;
 }
 
