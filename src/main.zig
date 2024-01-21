@@ -434,10 +434,10 @@ pub fn main() !void {
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_DPAD_DOWN) != 0) {
                 key_down = 1 << p8.k_down;
             }
-            if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_A) != 0) {
+            if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_A) != 0 or sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_Y) != 0) {
                 key_jump = 1 << p8.k_jump;
             }
-            if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_B) != 0) {
+            if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_B) != 0 or sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_X) != 0) {
                 key_dash = 1 << p8.k_dash;
             }
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_START) != 0) {
