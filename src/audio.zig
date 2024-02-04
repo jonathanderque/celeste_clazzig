@@ -76,6 +76,7 @@ const Waveform = struct {
 const note_duration: f64 = 0.266 / 32.0;
 //const note_duration: f64 = 1.0 / 183.0;
 const sample_duration: f64 = 1.0 / @as(f64, @floatFromInt(SAMPLE_RATE));
+const semitone: f64 = std.math.pow(f64, 2.0, 1.0 / 12.0);
 
 const AudioChannel = struct {
     playing: bool,
@@ -142,7 +143,7 @@ const AudioChannel = struct {
 
     pub fn assert_fx(effect: u8) void {
         switch (effect) {
-            0, 1, 4, 5 => {},
+            0, 1, 2, 4, 5 => {},
             else => {
                 if (!assert_fx_displayed[effect]) {
                     std.log.err("TODO: unknown effect {} not implemented", .{effect});
@@ -186,6 +187,13 @@ const AudioChannel = struct {
         switch (self.note_effect) {
             1 => { // SLIDE
                 note_freq = (self.note_freq - self.previous_note_freq) * self.current_note_duration + self.previous_note_freq;
+            },
+            2 => { // VIBRATO
+                const nd = note_duration * self.sfx_speed;
+
+                const t = (@fabs(@mod(self.current_note_duration / nd, 1) * 2 - 1) * 2 - 1) * 0.7;
+                const vibrato = note_freq * semitone;
+                note_freq = (vibrato - self.note_freq) * t + self.note_freq;
             },
             4 => { // FADE IN
                 const nd = note_duration * self.sfx_speed;
