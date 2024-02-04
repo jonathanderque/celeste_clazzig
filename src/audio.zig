@@ -143,7 +143,7 @@ const AudioChannel = struct {
 
     pub fn assert_fx(effect: u8) void {
         switch (effect) {
-            0, 1, 2, 4, 5 => {},
+            0, 1, 2, 4, 5, 6 => {},
             else => {
                 if (!assert_fx_displayed[effect]) {
                     std.log.err("TODO: unknown effect {} not implemented", .{effect});
@@ -204,6 +204,17 @@ const AudioChannel = struct {
                 const nd = note_duration * self.sfx_speed;
                 const fade_out = (nd - self.current_note_duration) / nd;
                 volume = volume * fade_out;
+            },
+            6 => { // ARPEGGIO
+                const nd = note_duration * self.sfx_speed;
+                const arpeggio_offset: usize = @intFromFloat(self.current_note_duration * 8 / nd);
+                const arpeggio_mask: usize = ~@as(usize, 3);
+                const arpeggio_index: usize = (self.current_note_index & arpeggio_mask) | (arpeggio_offset & 3);
+
+                // extracting key for arpeggio_index -- see extract_note_params
+                const arpeggio_key = self.sfx_data[2 * arpeggio_index] & 0b0011_1111;
+
+                note_freq = key_to_freq(@floatFromInt(arpeggio_key));
             },
             0 => {},
             else => {},
