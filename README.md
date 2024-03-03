@@ -28,15 +28,23 @@ zig build run
 
 At this point, this has only be tested on Linux.
 
+Additionally, `zig build` will also compile a libretro core. The core can then be run with:
+
+```shell
+retroarch -L ./zig-out/lib/libretro-celeste_clazzig.so
+```
+
 # Controls
 
-* Keyboard controls:
+* Keyboard controls for the SDL version:
   * arrows to move
   * Z to jump (Z assumes a qwerty keyboard. On non-qwerty keyboards this is the left-most letter key on the bottom row)
   * X to dash (letter key next to the jump key on non-qwerty keyboards)
   * Escape to invoke the Pause menu
 
 * Gamepad controls should be self explanatory. X-Input gamepads work well. Dualshock 4 controllers work partially (the game can be played but the option menu is not working).
+
+Controls for the libretro core are managed by your libretro frontend (likely retroarch).
 
 # Credits
 
