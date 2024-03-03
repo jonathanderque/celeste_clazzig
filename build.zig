@@ -89,6 +89,17 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(cart_extractor);
     const extract_cart = b.addRunArtifact(cart_extractor);
 
+    //// Libretro core
+
+    const libretro_core = b.addSharedLibrary(.{
+        .name = "libretro-celeste_clazzig",
+        .root_source_file = .{ .path = "src/main_libretro.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    libretro_core.addIncludePath(.{ .path = "src" });
+    b.installArtifact(libretro_core);
+
     //// Game
     const game = b.addExecutable(.{
         .name = "celeste_clazzig",
