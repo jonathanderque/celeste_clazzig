@@ -92,7 +92,7 @@ pub fn build(b: *std.Build) void {
     //// Libretro core
 
     const libretro_core = b.addSharedLibrary(.{
-        .name = "libretro-celeste_clazzig",
+        .name = "retro-celeste_clazzig",
         .root_source_file = .{ .path = "src/main_libretro.zig" },
         .target = target,
         .optimize = optimize,
