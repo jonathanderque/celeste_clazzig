@@ -82,6 +82,8 @@ const RetroData = struct {
     // input
     button_state: u8,
     previous_button_state: u8,
+    // sound
+    audio_engine: AudioEngine,
     // misc state
     should_init: bool,
     frame_counter: u8,
@@ -90,7 +92,6 @@ const RetroData = struct {
         const frame_buffer = try allocator.alloc(u32, screen_height * screen_height);
         const gfx_texture = try allocator.alloc(u32, screen_height * screen_height);
         var result: RetroData = RetroData{
-            //.gpa = gpa,
             .allocator = allocator,
             .frame_buffer = frame_buffer,
             .gfx_texture = gfx_texture,
@@ -100,6 +101,7 @@ const RetroData = struct {
             .palette = undefined,
             .button_state = 0,
             .previous_button_state = 0,
+            .audio_engine = AudioEngine.init(),
             .should_init = true,
             .frame_counter = 0,
         };
@@ -119,6 +121,9 @@ const RetroData = struct {
             load_texture(&font_texture, &font, 128, 85, &result.palette);
             result.base_font_textures[i] = font_texture;
         }
+
+        result.audio_engine.set_data(cart_data.music, cart_data.sfx);
+
         return result;
     }
 
@@ -163,6 +168,10 @@ pub export fn retro_set_video_refresh(cb: retro.retro_video_refresh_t) void {
     video_cb = cb;
 }
 
+pub export fn audio_set_state(enable: bool) void {
+    _ = enable;
+}
+
 pub export fn retro_set_audio_sample(cb: retro.retro_audio_sample_t) void {
     audio_cb = cb;
 }
@@ -189,11 +198,12 @@ pub export fn retro_get_system_info(info: [*c]retro.struct_retro_system_info) vo
 
 const screen_width: usize = 128;
 const screen_height: usize = 128;
+const FPS: usize = 60;
 
 pub export fn retro_get_system_av_info(info: [*c]retro.struct_retro_system_av_info) void {
     info.*.timing = retro.struct_retro_system_timing{
-        .fps = 60.0,
-        .sample_rate = 0.0,
+        .fps = @floatFromInt(FPS),
+        .sample_rate = audio.SAMPLE_RATE,
     };
     info.*.geometry = retro.struct_retro_game_geometry{
         .base_width = screen_width,
@@ -231,6 +241,16 @@ pub export fn retro_load_game(info: [*c]const retro.struct_retro_game_info) bool
         log_cb.?(retro.RETRO_LOG_INFO, "XRGB8888 is not supported.\n");
         return false;
     }
+
+    var audio_descr: retro.retro_audio_callback = retro.retro_audio_callback{
+        .callback = audio_callback,
+        .set_state = audio_set_state,
+    };
+    if (!environ_cb.?(retro.RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK, @as(?*anyopaque, @ptrCast(&audio_descr)))) {
+        log_cb.?(retro.RETRO_LOG_INFO, "error while initiating audio callback\n");
+        return false;
+    }
+
     return true;
 }
 
@@ -319,6 +339,17 @@ pub fn render() void {
     RetroCeleste._draw();
 }
 
+pub fn audio_callback() callconv(.C) void {
+    var i: usize = 0;
+    const len: usize = audio.SAMPLE_RATE / FPS;
+    while (i < len) : (i += 1) {
+        const volume: f64 = @as(f64, 2.5) / 7;
+        const sample = retro_data.audio_engine.sample();
+        const adjusted_sample: i16 = @as(i16, @intFromFloat(sample * volume * 32767));
+        audio_cb.?(adjusted_sample, adjusted_sample);
+    }
+}
+
 fn draw_symbol(symbol: u8, x: c_int, y: c_int, col: usize) void {
     const src_x: usize = @intCast(8 * (symbol % 16));
     const src_y: usize = @intCast(8 * (symbol / 16));
@@ -331,17 +362,13 @@ fn p8_btn(button: P8API.num) bool {
     return (retro_data.button_state & (one << @as(u3, @intFromFloat(button))) != 0);
 }
 fn p8_sfx(id: P8API.num) void {
-    _ = id;
-    // const sfx_id: usize = @intFromFloat(id);
-    // audio_engine.play_sfx(sfx_id);
+    const sfx_id: usize = @intFromFloat(id);
+    retro_data.audio_engine.play_sfx(sfx_id);
 }
 
 fn p8_music(id: P8API.num, fade: P8API.num, mask: P8API.num) void {
-    _ = id;
-    _ = fade;
-    _ = mask;
-    // const music_id: isize = @intFromFloat(id);
-    // audio_engine.play_music(music_id, @intFromFloat(fade), @intFromFloat(mask));
+    const music_id: isize = @intFromFloat(id);
+    retro_data.audio_engine.play_music(music_id, @intFromFloat(fade), @intFromFloat(mask));
 }
 
 fn p8_pal_reset() void {
