@@ -90,7 +90,6 @@ pub fn build(b: *std.Build) void {
     const extract_cart = b.addRunArtifact(cart_extractor);
 
     //// Libretro core
-
     const libretro_core = b.addSharedLibrary(.{
         .name = "retro-celeste_clazzig",
         .root_source_file = .{ .path = "src/main_libretro.zig" },
@@ -98,6 +97,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     libretro_core.addIncludePath(.{ .path = "src" });
+    libretro_core.step.dependOn(&extract_cart.step);
     b.installArtifact(libretro_core);
 
     //// Game
