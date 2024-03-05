@@ -102,10 +102,10 @@ pub fn build(b: *std.Build) void {
 
     //// Game
     const game = b.addExecutable(.{
-        .name = "celeste_clazzig",
+        .name = "celeste_clazzig_sdl2",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = "src/main_sdl2.zig" },
         .target = target,
         .optimize = optimize,
         .link_libc = true,
