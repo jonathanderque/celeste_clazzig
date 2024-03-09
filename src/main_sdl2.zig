@@ -150,10 +150,9 @@ pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len
 
     var i: usize = 0;
     while (i < len) : (i += 1) {
-        const volume: f64 = @as(f64, 0.5) / 7;
         const sample = audio_engine.sample();
 
-        snd[i] = @as(c_short, @intFromFloat(sample * volume * 32767));
+        snd[i] = @as(c_short, @intFromFloat(sample * 32767));
     }
 }
 
@@ -200,7 +199,7 @@ const PauseMenu = struct {
                 self.option_index = 0;
             }
         }
-        if (released_key(p8.k_jump) or released_key(p8.k_dash)) {
+        if (released_key(p8.k_jump) or released_key(p8.k_dash) or released_key(p8.k_left) or released_key(p8.k_right)) {
             switch (self.option_index) {
                 0 => {
                     self.toggle_pause();
@@ -215,13 +214,21 @@ const PauseMenu = struct {
                 3 => {
                     self.screen_shake = !self.screen_shake;
                 },
+                4 => {
+                    if (released_key(p8.k_left) and audio_engine.global_volume >= 10) {
+                        audio_engine.global_volume -= 10;
+                    }
+                    if (released_key(p8.k_right) and audio_engine.global_volume <= 90) {
+                        audio_engine.global_volume += 10;
+                    }
+                },
                 else => unreachable,
             }
         }
     }
 
     const cursor_symbol = 143;
-    const option_ys = [_]u8{ 12, 19, 40, 47 };
+    const option_ys = [_]u8{ 12, 19, 40, 47, 68 };
     fn draw(self: *PauseMenu) void {
         if (!self.pause) {
             return;
@@ -231,7 +238,7 @@ const PauseMenu = struct {
         const cursor_x = title_x;
         const option_x = title_x + 8;
 
-        p8_api.rectfill(title_x - 2, 4, 85, 60, 0);
+        p8_api.rectfill(title_x - 2, 4, 103, 75, 0);
         p8_api.print("celeste clazzig", title_x, 5, 7);
         p8_api.print("RESUME", option_x, option_ys[0], 7);
         p8_api.print("QUIT", option_x, option_ys[1], 7);
@@ -245,6 +252,19 @@ const PauseMenu = struct {
             p8_api.print("SCREEN SHAKE: on", option_x, option_ys[3], 7);
         } else {
             p8_api.print("SCREEN SHAKE: off", option_x, option_ys[3], 7);
+        }
+        p8_api.print("sound options", title_x, option_ys[4] - 7, 7);
+        p8_api.print("GLOBAL VOLUME:", option_x, option_ys[4], 7);
+
+        var i: usize = 0;
+        while (i < 10) : (i += 1) {
+            const rect_x: P8API.num = @floatFromInt(65 + title_x + 3 * i);
+            const rect_y: P8API.num = @floatFromInt(2 + option_ys[4]);
+            if (10 * i >= audio_engine.global_volume) {
+                p8_api.rectfill(rect_x, rect_y, rect_x + 1, rect_y + 1, 7);
+            } else {
+                p8_api.rectfill(rect_x, rect_y - 2, rect_x + 1, rect_y + 2, 7);
+            }
         }
         draw_symbol(cursor_symbol, cursor_x, option_ys[self.option_index], 7);
     }
