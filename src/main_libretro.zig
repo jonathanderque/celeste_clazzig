@@ -25,6 +25,8 @@ var logging: retro.struct_retro_log_callback = std.mem.zeroes(retro.struct_retro
 //pub extern fn fallback_log(level: retro.enum_retro_log_level, fmt: [*c]const u8, ...) void;
 pub extern fn memset(__s: ?*anyopaque, __c: c_int, __n: c_ulong) ?*anyopaque;
 
+const screen_shake_option = "screen_shake";
+
 var gpa = GeneralPurposeAllocator(.{}){};
 
 const transparent_pixel: u32 = 0xff000000;
@@ -162,6 +164,12 @@ pub export fn retro_set_controller_port_device(port: c_uint, device: c_uint) voi
 
 pub export fn retro_set_environment(cb: retro.retro_environment_t) void {
     environ_cb = cb;
+    var vars = [_]retro.retro_variable{
+        retro.retro_variable{ .key = screen_shake_option, .value = "Screen Shake; true|false" },
+        retro.retro_variable{ .key = null, .value = null },
+    };
+
+    _ = cb.?(retro.RETRO_ENVIRONMENT_SET_VARIABLES, @as(?*anyopaque, @ptrCast(&vars)));
 
     var no_content: bool = true;
     _ = cb.?(retro.RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_content);
@@ -258,6 +266,8 @@ pub export fn retro_load_game(info: [*c]const retro.struct_retro_game_info) bool
         return false;
     }
 
+    check_variables();
+
     return true;
 }
 
@@ -318,6 +328,11 @@ pub export fn retro_run() void {
     }
     video_cb.?(@as(?*anyopaque, @ptrCast(retro_data.frame_buffer)), screen_width, screen_height, 0);
     retro_data.frame_counter += 1;
+
+    var updated = false;
+    if (environ_cb.?(retro.RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) and updated) {
+        check_variables();
+    }
 }
 
 pub fn update_input() void {
@@ -344,6 +359,20 @@ pub fn update() void {
 
 pub fn render() void {
     RetroCeleste._draw();
+}
+
+pub fn check_variables() void {
+    var core_var = retro.retro_variable{
+        .key = screen_shake_option,
+        .value = null,
+    };
+    if (environ_cb.?(retro.RETRO_ENVIRONMENT_GET_VARIABLE, &core_var)) {
+        retro_data.screen_shake = (core_var.value[0] == 't');
+        if (retro_data.screen_shake == false) {
+            retro_data.camera_x = 0;
+            retro_data.camera_y = 0;
+        }
+    }
 }
 
 pub fn audio_callback() callconv(.C) void {
