@@ -8,6 +8,22 @@ const Allocator = std.mem.Allocator;
 const Reader = std.fs.File.Reader;
 const Writer = std.fs.File.Writer;
 
+pub fn assert_file_exists(path: []const u8) !void {
+    var file = std.fs.cwd().openFile(path, .{}) catch |e|
+        switch (e) {
+        error.PathAlreadyExists => {
+            return;
+        },
+        else => {
+            std.log.err("could not find celeste cart ({s}).", .{path});
+            std.log.err("Supply your own or run:", .{});
+            std.log.err("  zig build download-cart", .{});
+            return e;
+        },
+    };
+    defer file.close();
+}
+
 pub fn extract(allocator: Allocator, path: []const u8, w: Writer) !void {
     var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
     const image_path = try std.fs.realpath(path, &path_buffer);
@@ -74,6 +90,10 @@ pub fn main() !void {
     defer out_file.close();
 
     const cart_path = "src/cart/15133.p8.png";
+
+    assert_file_exists(cart_path) catch {
+        std.process.exit(1);
+    };
 
     try extract(allocator, cart_path, out_file.writer());
 }
