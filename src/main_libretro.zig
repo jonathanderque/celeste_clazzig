@@ -26,6 +26,7 @@ var logging: retro.struct_retro_log_callback = std.mem.zeroes(retro.struct_retro
 pub extern fn memset(__s: ?*anyopaque, __c: c_int, __n: c_ulong) ?*anyopaque;
 
 const screen_shake_option = "screen_shake";
+const global_volume_option = "global_volume_option";
 
 var gpa = GeneralPurposeAllocator(.{}){};
 
@@ -166,6 +167,7 @@ pub export fn retro_set_environment(cb: retro.retro_environment_t) void {
     environ_cb = cb;
     var vars = [_]retro.retro_variable{
         retro.retro_variable{ .key = screen_shake_option, .value = "Screen Shake; true|false" },
+        retro.retro_variable{ .key = global_volume_option, .value = "Global Volume; 0|1|2|3|4|5|6|7|8|9|10" },
         retro.retro_variable{ .key = null, .value = null },
     };
 
@@ -373,15 +375,24 @@ pub fn check_variables() void {
             retro_data.camera_y = 0;
         }
     }
+
+    core_var.key = global_volume_option;
+    core_var.value = null;
+    if (environ_cb.?(retro.RETRO_ENVIRONMENT_GET_VARIABLE, &core_var)) {
+        const val: []const u8 = std.mem.sliceTo(core_var.value, 0);
+        const vol_int: isize = std.fmt.parseInt(isize, val, 10) catch 5;
+        if (vol_int >= 0 and vol_int <= 10) {
+            retro_data.audio_engine.global_volume = @as(usize, @intCast(vol_int)) * 10;
+        }
+    }
 }
 
 pub fn audio_callback() callconv(.C) void {
     var i: usize = 0;
     const len: usize = audio.SAMPLE_RATE / FPS;
     while (i < len) : (i += 1) {
-        const volume: f64 = @as(f64, 2.5) / 7;
         const sample = retro_data.audio_engine.sample();
-        const adjusted_sample: i16 = @as(i16, @intFromFloat(sample * volume * 32767));
+        const adjusted_sample: i16 = @as(i16, @intFromFloat(sample * 32767));
         audio_cb.?(adjusted_sample, adjusted_sample);
     }
 }

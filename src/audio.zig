@@ -258,6 +258,7 @@ pub const AudioEngine = struct {
     music_data: []const u8 = undefined,
     sfx_data: []const u8 = undefined,
     channels: [CHANNEL_COUNT]AudioChannel,
+    global_volume: usize = 50,
 
     // music attributes
     music_playing: bool = false,
@@ -348,7 +349,7 @@ pub const AudioEngine = struct {
                 }
             }
         }
-        return result;
+        return @as(f64, @floatFromInt(self.global_volume)) / 100.0 * result;
     }
 
     fn play_sfx_on_channel(self: *AudioEngine, sfx_id: usize, channel_id: usize) void {
