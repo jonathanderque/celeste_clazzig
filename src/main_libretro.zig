@@ -79,6 +79,10 @@ const RetroData = struct {
     base_font_textures: [16][]u32,
     font_textures: [16][]u32,
     should_reload_gfx_texture: bool,
+    // screen shake
+    screen_shake: bool,
+    camera_x: isize,
+    camera_y: isize,
     // input
     button_state: u8,
     previous_button_state: u8,
@@ -99,6 +103,9 @@ const RetroData = struct {
             .font_textures = undefined,
             .should_reload_gfx_texture = true,
             .palette = undefined,
+            .screen_shake = true,
+            .camera_x = 0,
+            .camera_y = 0,
             .button_state = 0,
             .previous_button_state = 0,
             .audio_engine = AudioEngine.init(),
@@ -387,21 +394,17 @@ fn p8_pal(x: P8API.num, y: P8API.num) void {
     retro_data.should_reload_gfx_texture = true;
 }
 
-var camera_x: P8API.num = 0;
-var camera_y: P8API.num = 0;
 fn p8_camera(x: P8API.num, y: P8API.num) void {
-    _ = x;
-    _ = y;
-    // if (pause_menu.screen_shake) {
-    //     camera_x = x;
-    //     camera_y = y;
-    // }
+    if (retro_data.screen_shake) {
+        retro_data.camera_x = @intFromFloat(x);
+        retro_data.camera_y = @intFromFloat(y);
+    }
 }
 
 fn p8_print(str: []const u8, x_arg: P8API.num, y_arg: P8API.num, col: P8API.num) void {
     var col_idx: usize = @intFromFloat(@mod(col, 16));
-    var x: c_int = @intFromFloat(x_arg - camera_x);
-    const y: c_int = @intFromFloat(y_arg - camera_y);
+    var x: c_int = @as(c_int, @intFromFloat(x_arg)) - @as(c_int, @intCast(retro_data.camera_x));
+    const y: c_int = @as(c_int, @intFromFloat(y_arg)) - @as(c_int, @intCast(retro_data.camera_y));
 
     for (str) |cconst| {
         var c = cconst;
@@ -424,7 +427,7 @@ fn p8_num_to_screen(x: P8API.num) isize {
 }
 
 fn p8_set_pixel(x: isize, y: isize, c: u32) void {
-    if (x >= 0 and x < screen_width and y >= 0 and y <= screen_height) {
+    if (x >= 0 and x < screen_width and y >= 0 and y < screen_height) {
         const xi: usize = @intCast(x);
         const yi: usize = @intCast(y);
         retro_data.frame_buffer[xi + yi * screen_width] = c;
@@ -443,7 +446,7 @@ fn p8_line(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8AP
     var y: isize = p8_num_to_screen(@min(y1, y2));
     const y_max: isize = p8_num_to_screen(@max(y1, y2));
     while (y < y_max) : (y += 1) {
-        p8_set_pixel(x, y, c);
+        p8_set_pixel(x - retro_data.camera_x, y - retro_data.camera_y, c);
     }
 }
 
@@ -464,7 +467,7 @@ fn p8_rectfill(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: 
     while (x < x_max) : (x += 1) {
         var y: isize = @min(y1i, y2i);
         while (y < y_max) : (y += 1) {
-            p8_set_pixel(@intCast(x), @intCast(y), c);
+            p8_set_pixel(x - retro_data.camera_x, y - retro_data.camera_y, c);
         }
     }
 }
@@ -496,7 +499,7 @@ fn blit(texture: []u32, src_x: usize, src_y: usize, dst_x: isize, dst_y: isize, 
             if (px_x >= 0 and px_x < screen_width and px_y >= 0 and px_y < screen_height) {
                 const pixel = texture[src_x + x + (src_y + y) * screen_width];
                 if (pixel != transparent_pixel) {
-                    p8_set_pixel(px_x, px_y, pixel);
+                    p8_set_pixel(px_x - retro_data.camera_x, px_y - retro_data.camera_y, pixel);
                 }
             }
         }
