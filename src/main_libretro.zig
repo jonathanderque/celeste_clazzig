@@ -497,15 +497,11 @@ fn dim(d1: P8API.num, d2: P8API.num) usize {
 fn p8_rectfill(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8API.num) void {
     const c = retro_data.palette[@mod(@as(usize, @intFromFloat(col)), retro_data.palette.len)];
 
-    const x1i: isize = p8_num_to_screen(x1);
-    const x2i: isize = p8_num_to_screen(x2);
-    const y1i: isize = p8_num_to_screen(y1);
-    const y2i: isize = p8_num_to_screen(y2);
-    const x_max: isize = @max(x1i, x2i) + 1;
-    const y_max: isize = @max(y1i, y2i) + 1;
-    var x: isize = @min(x1i, x2i);
+    var x: isize = @intFromFloat(x1);
+    const x_max: isize = @intFromFloat(x2 + 1);
+    const y_max: isize = @intFromFloat(y2 + 1);
     while (x < x_max) : (x += 1) {
-        var y: isize = @min(y1i, y2i);
+        var y: isize = @intFromFloat(y1);
         while (y < y_max) : (y += 1) {
             p8_set_pixel(x - retro_data.camera_x, y - retro_data.camera_y, c);
         }
