@@ -13,6 +13,14 @@ const font = @import("font.zig").font;
 const audio = @import("audio.zig");
 const AudioEngine = audio.AudioEngine;
 
+pub fn n(_n: anytype) P8API.num {
+    return P8API.num.from_int(_n);
+}
+
+pub fn nf(_n: f32) P8API.num {
+    return P8API.num.from_float(_n);
+}
+
 var log_cb: retro.retro_log_printf_t = std.mem.zeroes(retro.retro_log_printf_t);
 var environ_cb: retro.retro_environment_t = std.mem.zeroes(retro.retro_environment_t);
 var video_cb: retro.retro_video_refresh_t = std.mem.zeroes(retro.retro_video_refresh_t);
@@ -340,13 +348,14 @@ pub export fn retro_run() void {
 pub fn update_input() void {
     input_poll_cb.?();
 
-    const key_left: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_LEFT) != 0) (1 << p8.k_left) else 0;
-    const key_right: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_RIGHT) != 0) (1 << p8.k_right) else 0;
-    const key_up: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_UP) != 0) (1 << p8.k_up) else 0;
-    const key_down: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_DOWN) != 0) (1 << p8.k_down) else 0;
-    const key_jump: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_B) != 0) (1 << p8.k_jump) else 0;
-    const key_dash: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_A) != 0) (1 << p8.k_dash) else 0;
-    const key_menu: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_START) != 0) (1 << p8.k_menu) else 0;
+    const one: u8 = 1;
+    const key_left: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_LEFT) != 0) (one << p8.k_left.to_int(u3)) else 0;
+    const key_right: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_RIGHT) != 0) (one << p8.k_right.to_int(u3)) else 0;
+    const key_up: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_UP) != 0) (one << p8.k_up.to_int(u3)) else 0;
+    const key_down: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_DOWN) != 0) (one << p8.k_down.to_int(u3)) else 0;
+    const key_jump: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_B) != 0) (one << p8.k_jump.to_int(u3)) else 0;
+    const key_dash: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_A) != 0) (one << p8.k_dash.to_int(u3)) else 0;
+    const key_menu: u8 = if (input_state_cb.?(0, retro.RETRO_DEVICE_JOYPAD, 0, retro.RETRO_DEVICE_ID_JOYPAD_START) != 0) (one << p8.k_menu.to_int(u3)) else 0;
 
     retro_data.button_state = key_left | key_right | key_up | key_down | key_up | key_jump | key_dash | key_menu;
 }
@@ -406,16 +415,16 @@ fn draw_symbol(symbol: u8, x: c_int, y: c_int, col: usize) void {
 // Pico8 API
 fn p8_btn(button: P8API.num) bool {
     const one: u8 = 1;
-    return (retro_data.button_state & (one << @as(u3, @intFromFloat(button))) != 0);
+    return (retro_data.button_state & (one << button.to_int(u3)) != 0);
 }
 fn p8_sfx(id: P8API.num) void {
-    const sfx_id: usize = @intFromFloat(id);
+    const sfx_id: usize = id.to_int(usize);
     retro_data.audio_engine.play_sfx(sfx_id);
 }
 
 fn p8_music(id: P8API.num, fade: P8API.num, mask: P8API.num) void {
-    const music_id: isize = @intFromFloat(id);
-    retro_data.audio_engine.play_music(music_id, @intFromFloat(fade), @intFromFloat(mask));
+    const music_id: isize = id.to_int(isize);
+    retro_data.audio_engine.play_music(music_id, fade.to_int(u32), mask.to_int(u32));
 }
 
 fn p8_pal_reset() void {
@@ -428,23 +437,23 @@ fn p8_pal_reset() void {
 }
 
 fn p8_pal(x: P8API.num, y: P8API.num) void {
-    const xi: usize = @intFromFloat(x);
-    retro_data.palette[xi] = base_palette[@intFromFloat(y)];
-    retro_data.font_textures[xi] = retro_data.base_font_textures[@intFromFloat(y)];
+    const xi: usize = x.to_int(usize);
+    retro_data.palette[xi] = base_palette[y.to_int(usize)];
+    retro_data.font_textures[xi] = retro_data.base_font_textures[y.to_int(usize)];
     retro_data.should_reload_gfx_texture = true;
 }
 
 fn p8_camera(x: P8API.num, y: P8API.num) void {
     if (retro_data.screen_shake) {
-        retro_data.camera_x = @intFromFloat(x);
-        retro_data.camera_y = @intFromFloat(y);
+        retro_data.camera_x = x.to_int(isize);
+        retro_data.camera_y = y.to_int(isize);
     }
 }
 
 fn p8_print(str: []const u8, x_arg: P8API.num, y_arg: P8API.num, col: P8API.num) void {
-    const col_idx: usize = @intFromFloat(@mod(col, 16));
-    var x: c_int = @as(c_int, @intFromFloat(x_arg)) - @as(c_int, @intCast(retro_data.camera_x));
-    const y: c_int = @as(c_int, @intFromFloat(y_arg)) - @as(c_int, @intCast(retro_data.camera_y));
+    const col_idx: usize = col.mod(P8API.num.from_int(16)).to_int(usize);
+    var x: c_int = x_arg.sub(P8API.num.from_int(retro_data.camera_x)).to_int(c_int);
+    const y: c_int = y_arg.sub(P8API.num.from_int(retro_data.camera_y)).to_int(c_int);
 
     for (str) |cconst| {
         var c = cconst;
@@ -457,12 +466,12 @@ fn p8_print(str: []const u8, x_arg: P8API.num, y_arg: P8API.num, col: P8API.num)
 }
 
 fn p8_num_to_screen(x: P8API.num) isize {
-    if (x < 0) {
+    if (x.lt(n(0))) {
         return 0;
-    } else if (x >= screen_width) { // TODO semantically not correct for height
+    } else if (x.ge(P8API.num.from_int(screen_width))) { // TODO semantically not correct for height
         return screen_width - 1;
     } else {
-        return @intFromFloat(@floor(x));
+        return x.floor().to_int(isize);
     }
 }
 
@@ -475,16 +484,16 @@ fn p8_set_pixel(x: isize, y: isize, c: u32) void {
 }
 
 fn p8_line(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8API.num) void {
-    const c = retro_data.palette[@mod(@as(usize, @intFromFloat(col)), retro_data.palette.len)];
+    const c = retro_data.palette[col.mod(P8API.num.from_int(retro_data.palette.len)).to_int(usize)];
 
-    if (x1 != x2) {
-        std.log.err("only vertical lines are supported ({d:6.1},{d:6.1})({d:6.1},{d:6.1})", .{ x1, y1, x2, y2 });
+    if (x1.ne(x2)) {
+        std.log.err("only vertical lines are supported ({d:6.1},{d:6.1})({d:6.1},{d:6.1})", .{ x1.to_float(f32), y1.to_float(f32), x2.to_float(f32), y2.to_float(f32) });
         return;
     }
 
     const x: isize = p8_num_to_screen(x1);
-    var y: isize = p8_num_to_screen(@min(y1, y2));
-    const y_max: isize = p8_num_to_screen(@max(y1, y2));
+    var y: isize = p8_num_to_screen(y1.min(y2));
+    const y_max: isize = p8_num_to_screen(y1.max(y2));
     while (y < y_max) : (y += 1) {
         p8_set_pixel(x - retro_data.camera_x, y - retro_data.camera_y, c);
     }
@@ -495,13 +504,13 @@ fn dim(d1: P8API.num, d2: P8API.num) usize {
 }
 
 fn p8_rectfill(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8API.num) void {
-    const c = retro_data.palette[@mod(@as(usize, @intFromFloat(col)), retro_data.palette.len)];
+    const c = retro_data.palette[col.mod(P8API.num.from_int(retro_data.palette.len)).to_int(usize)];
 
-    var x: isize = @intFromFloat(x1);
-    const x_max: isize = @intFromFloat(x2 + 1);
-    const y_max: isize = @intFromFloat(y2 + 1);
+    var x: isize = x1.to_int(isize);
+    const x_max: isize = x2.add(n(1)).to_int(isize);
+    const y_max: isize = y2.add(n(1)).to_int(isize);
     while (x < x_max) : (x += 1) {
-        var y: isize = @intFromFloat(y1);
+        var y: isize = y1.to_int(isize);
         while (y < y_max) : (y += 1) {
             p8_set_pixel(x - retro_data.camera_x, y - retro_data.camera_y, c);
         }
@@ -509,16 +518,16 @@ fn p8_rectfill(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: 
 }
 
 fn p8_circfill(x: P8API.num, y: P8API.num, r: P8API.num, col: P8API.num) void {
-    if (r <= 1) {
-        p8_rectfill(x - 1, y, x + 1, y, col);
-        p8_rectfill(x, y - 1, x, y + 1, col);
-    } else if (r <= 2) {
-        p8_rectfill(x - 2, y - 1, x + 2, y + 1, col);
-        p8_rectfill(x - 1, y - 2, x + 1, y + 2, col);
-    } else if (r <= 3) {
-        p8_rectfill(x - 3, y - 1, x + 3, y + 1, col);
-        p8_rectfill(x - 1, y - 3, x - 1, y + 3, col);
-        p8_rectfill(x - 2, y - 2, x + 2, y + 2, col);
+    if (r.le(n(1))) {
+        p8_rectfill(x.sub(n(1)), y, x.add(n(1)), y, col);
+        p8_rectfill(x, y.sub(n(1)), x, y.add(n(1)), col);
+    } else if (r.le(n(2))) {
+        p8_rectfill(x.sub(n(2)), y.sub(n(1)), x.add(n(2)), y.add(n(1)), col);
+        p8_rectfill(x.sub(n(1)), y.sub(n(2)), x.add(n(1)), y.add(n(2)), col);
+    } else if (r.le(n(3))) {
+        p8_rectfill(x.sub(n(3)), y.sub(n(1)), x.add(n(3)), y.add(n(1)), col);
+        p8_rectfill(x.sub(n(1)), y.sub(n(3)), x.sub(n(1)), y.add(n(3)), col);
+        p8_rectfill(x.sub(n(2)), y.sub(n(2)), x.add(n(2)), y.add(n(2)), col);
     }
 }
 
@@ -549,17 +558,17 @@ fn p8_spr(sprite: P8API.num, x: P8API.num, y: P8API.num, w: P8API.num, h: P8API.
 
     retro_data.reload_textures();
 
-    if (sprite >= 0) {
-        const src_x: usize = @intCast(8 * @as(usize, @intFromFloat(@mod(sprite, 16))));
-        const src_y: usize = @intCast(8 * @as(usize, @intFromFloat(@divTrunc(sprite, 16))));
+    if (sprite.ge(n(0))) {
+        const src_x: usize = sprite.mod(n(16)).to_int(usize) * 8;
+        const src_y: usize = sprite.divTrunc(n(16)).to_int(usize) * 8;
 
-        blit(retro_data.gfx_texture, src_x, src_y, @intFromFloat(x), @intFromFloat(y), 8, 8, flip_x);
+        blit(retro_data.gfx_texture, src_x, src_y, x.to_int(isize), y.to_int(isize), 8, 8, flip_x);
     }
 }
 
 // sprite flags
 fn p8_fget(tile: usize, flag: P8API.num) bool {
-    const f: u5 = @intFromFloat(flag);
+    const f: u5 = flag.to_int(u5);
     const one: u32 = 1;
     return tile < cart_data.gff.len and (cart_data.gff[tile] & (one << f)) != 0;
 }
@@ -568,21 +577,21 @@ fn p8_fget(tile: usize, flag: P8API.num) bool {
 fn p8_map(cel_x: P8API.num, cel_y: P8API.num, screen_x: P8API.num, screen_y: P8API.num, cel_w: P8API.num, cel_h: P8API.num, mask: P8API.num) void {
     retro_data.reload_textures();
 
-    var x: P8API.num = 0;
+    var x: P8API.num = n(0);
     const map_len = cart_data.map_low.len + cart_data.map_high.len;
-    while (x < cel_w) : (x += 1) {
-        var y: P8API.num = 0;
-        while (y < cel_h) : (y += 1) {
-            const tile_index: usize = @intFromFloat(x + cel_x + (y + cel_y) * 128);
+    while (x.lt(cel_w)) : (x = x.add(n(1))) {
+        var y: P8API.num = n(0);
+        while (y.lt(cel_h)) : (y = y.add(n(1))) {
+            const tile_index: usize = x.add(cel_x).add(y.add(cel_y).mul(n(128))).to_int(usize);
             if (tile_index < map_len) {
                 const idx = @mod(tile_index, map_len);
                 const tile: u8 = if (idx < cart_data.map_low.len) cart_data.map_low[idx] else cart_data.map_high[idx - cart_data.map_low.len];
-                if (mask == 0 or (mask == 4 and cart_data.gff[tile] == 4) or p8_fget(tile, if (mask != 4) mask - 1 else mask)) {
+                if (mask.eq(n(0)) or (mask.eq(n(4)) and cart_data.gff[tile] == 4) or p8_fget(tile, if (mask.ne(n(4))) mask.sub(n(1)) else mask)) {
                     const src_x: usize = @intCast(8 * @mod(tile, 16));
                     const src_y: usize = @intCast(8 * @divTrunc(tile, 16));
 
-                    const dst_x: isize = @intFromFloat(screen_x + x * 8);
-                    const dst_y: isize = @intFromFloat(screen_y + y * 8);
+                    const dst_x: isize = screen_x.add(x.mul(n(8))).to_int(isize);
+                    const dst_y: isize = screen_y.add(y.mul(n(8))).to_int(isize);
 
                     blit(retro_data.gfx_texture, src_x, src_y, dst_x, dst_y, 8, 8, false);
                 }
@@ -592,53 +601,41 @@ fn p8_map(cel_x: P8API.num, cel_y: P8API.num, screen_x: P8API.num, screen_y: P8A
 }
 
 fn p8_mget(tx: P8API.num, ty: P8API.num) P8API.tile {
-    if (ty <= 31) {
-        const idx: usize = @intFromFloat(tx + ty * 128);
+    if (ty.le(n(31))) {
+        const idx: usize = tx.add(ty.mul(n(128))).to_int(usize);
         return @intCast(cart_data.map_low[idx]);
     } else {
-        const idx: usize = @intFromFloat(tx + (ty - 32) * 128);
+        const idx: usize = tx.add(ty.sub(n(32)).mul(n(128))).to_int(usize);
         return @intCast(cart_data.map_high[idx]);
     }
 }
 // math
-fn p8_abs(n: P8API.num) P8API.num {
-    return @abs(n);
+fn p8_abs(x: P8API.num) P8API.num {
+    return x.abs();
 }
 
-fn p8_flr(n: P8API.num) P8API.num {
-    return @floor(n);
+fn p8_flr(x: P8API.num) P8API.num {
+    return x.floor();
 }
 
 fn p8_min(n1: P8API.num, n2: P8API.num) P8API.num {
-    return @min(n1, n2);
+    return n1.min(n2);
 }
 
 fn p8_max(n1: P8API.num, n2: P8API.num) P8API.num {
-    return @max(n1, n2);
-}
-
-var rnd_seed_lo: i64 = 0;
-var rnd_seed_hi: i64 = 1;
-fn pico8_random(max: P8API.num) i64 { //decomp'd pico-8
-    if (max == 0) {
-        return 0;
-    }
-    rnd_seed_hi = @addWithOverflow(((rnd_seed_hi << 16) | (rnd_seed_hi >> 16)), rnd_seed_lo)[0];
-    rnd_seed_lo = @addWithOverflow(rnd_seed_lo, rnd_seed_hi)[0];
-    return @mod(rnd_seed_hi, @as(i64, @intFromFloat(max)));
+    return n1.max(n2);
 }
 
 fn p8_rnd(rnd_max: P8API.num) P8API.num {
-    const n: i64 = pico8_random(10000 * rnd_max);
-    return @as(P8API.num, @floatFromInt(n)) / 10000;
+    return P8API.num.random(rnd_max);
 }
 
 fn p8_sin(x: P8API.num) P8API.num {
-    return -std.math.sin(x * 6.2831853071796); //https://pico-8.fandom.com/wiki/Math
+    return x.mul(nf(6.2831853071796)).sin().neg(); //https://pico-8.fandom.com/wiki/Math
 }
 
 fn p8_cos(x: P8API.num) P8API.num {
-    return -p8_sin((x) + 0.25);
+    return p8_sin(x.add(nf(0.25))).neg();
 }
 
 const p8_api = P8API{

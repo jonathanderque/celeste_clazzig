@@ -9,16 +9,16 @@ pub const P8Rect = struct {
     h: API.num,
 };
 
-pub const k_left: API.num = 0;
-pub const k_right: API.num = 1;
-pub const k_up: API.num = 2;
-pub const k_down: API.num = 3;
-pub const k_jump: API.num = 4;
-pub const k_dash: API.num = 5;
-pub const k_menu: API.num = 6;
+pub const k_left: API.num = API.num.from_int(0);
+pub const k_right: API.num = API.num.from_int(1);
+pub const k_up: API.num = API.num.from_int(2);
+pub const k_down: API.num = API.num.from_int(3);
+pub const k_jump: API.num = API.num.from_int(4);
+pub const k_dash: API.num = API.num.from_int(5);
+pub const k_menu: API.num = API.num.from_int(6);
 
 pub const API = struct {
-    pub const num = f32;
+    pub const num = @import("num_fixpoint.zig").t;
     pub const tile = i8;
 
     // input

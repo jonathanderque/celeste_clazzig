@@ -16,6 +16,14 @@ const AudioEngine = audio.AudioEngine;
 
 const celeste = @import("celeste.zig");
 
+pub fn n(_n: anytype) P8API.num {
+    return P8API.num.from_int(_n);
+}
+
+pub fn nf(_n: f32) P8API.num {
+    return P8API.num.from_float(_n);
+}
+
 const base_palette = [_]sdl.SDL_Color{
     sdl.SDL_Color{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xff }, //
     sdl.SDL_Color{ .r = 0x1d, .g = 0x2b, .b = 0x53, .a = 0xff },
@@ -123,7 +131,7 @@ var button_state: u8 = 0;
 var previous_button_state: u8 = 0;
 
 fn released_key(key: P8API.num) bool {
-    const k: u3 = @intFromFloat(key);
+    const k: u3 = key.to_int(u3);
     const mask: u8 = @as(u8, 1) << k;
     return (button_state & mask == 0) and (previous_button_state & mask != 0);
 }
@@ -228,45 +236,45 @@ const PauseMenu = struct {
     }
 
     const cursor_symbol = 143;
-    const option_ys = [_]u8{ 12, 19, 40, 47, 68 };
+    const option_ys = [_]P8API.num{ n(12), n(19), n(40), n(47), n(68) };
     fn draw(self: *PauseMenu) void {
         if (!self.pause) {
             return;
         }
 
-        const title_x = 6;
+        const title_x = n(6);
         const cursor_x = title_x;
-        const option_x = title_x + 8;
+        const option_x = title_x.add(n(8));
 
-        p8_api.rectfill(title_x - 2, 4, 103, 75, 0);
-        p8_api.print("celeste clazzig", title_x, 5, 7);
-        p8_api.print("RESUME", option_x, option_ys[0], 7);
-        p8_api.print("QUIT", option_x, option_ys[1], 7);
-        p8_api.print("graphics options", title_x, option_ys[2] - 7, 7);
+        p8_api.rectfill(title_x.sub(n(2)), n(4), n(103), n(75), n(0));
+        p8_api.print("celeste clazzig", title_x, n(5), n(7));
+        p8_api.print("RESUME", option_x, option_ys[0], n(7));
+        p8_api.print("QUIT", option_x, option_ys[1], n(7));
+        p8_api.print("graphics options", title_x, option_ys[2].sub(n(7)), n(7));
         if (self.fullscreen) {
-            p8_api.print("FULLSCREEN: on", option_x, option_ys[2], 7);
+            p8_api.print("FULLSCREEN: on", option_x, option_ys[2], n(7));
         } else {
-            p8_api.print("FULLSCREEN: off", option_x, option_ys[2], 7);
+            p8_api.print("FULLSCREEN: off", option_x, option_ys[2], n(7));
         }
         if (self.screen_shake) {
-            p8_api.print("SCREEN SHAKE: on", option_x, option_ys[3], 7);
+            p8_api.print("SCREEN SHAKE: on", option_x, option_ys[3], n(7));
         } else {
-            p8_api.print("SCREEN SHAKE: off", option_x, option_ys[3], 7);
+            p8_api.print("SCREEN SHAKE: off", option_x, option_ys[3], n(7));
         }
-        p8_api.print("sound options", title_x, option_ys[4] - 7, 7);
-        p8_api.print("GLOBAL VOLUME:", option_x, option_ys[4], 7);
+        p8_api.print("sound options", title_x, option_ys[4].sub(n(7)), n(7));
+        p8_api.print("GLOBAL VOLUME:", option_x, option_ys[4], n(7));
 
         var i: usize = 0;
         while (i < 10) : (i += 1) {
-            const rect_x: P8API.num = @floatFromInt(65 + title_x + 3 * i);
-            const rect_y: P8API.num = @floatFromInt(2 + option_ys[4]);
+            const rect_x: P8API.num = n(65).add(title_x).add(n(3 * i));
+            const rect_y: P8API.num = n(2).add(option_ys[4]);
             if (10 * i >= audio_engine.global_volume) {
-                p8_api.rectfill(rect_x, rect_y, rect_x + 1, rect_y + 1, 7);
+                p8_api.rectfill(rect_x, rect_y, rect_x.add(n(1)), rect_y.add(n(1)), n(7));
             } else {
-                p8_api.rectfill(rect_x, rect_y - 2, rect_x + 1, rect_y + 2, 7);
+                p8_api.rectfill(rect_x, rect_y.sub(n(2)), rect_x.add(n(1)), rect_y.add(n(2)), n(7));
             }
         }
-        draw_symbol(cursor_symbol, cursor_x, option_ys[self.option_index], 7);
+        draw_symbol(cursor_symbol, cursor_x.to_int(c_int), option_ys[self.option_index].to_int(c_int), 7);
     }
 };
 
@@ -426,42 +434,43 @@ pub fn main() !void {
         const current_key_states = sdl.SDL_GetKeyboardState(null);
 
         button_state = 0;
-        var key_left: u8 = if (current_key_states[sdl.SDL_SCANCODE_LEFT] != 0) (1 << p8.k_left) else 0;
-        var key_right: u8 = if (current_key_states[sdl.SDL_SCANCODE_RIGHT] != 0) (1 << p8.k_right) else 0;
-        var key_up: u8 = if (current_key_states[sdl.SDL_SCANCODE_UP] != 0) (1 << p8.k_up) else 0;
-        var key_down: u8 = if (current_key_states[sdl.SDL_SCANCODE_DOWN] != 0) (1 << p8.k_down) else 0;
-        var key_jump: u8 = if (current_key_states[sdl.SDL_SCANCODE_Z] != 0) (1 << p8.k_jump) else 0;
-        var key_dash: u8 = if (current_key_states[sdl.SDL_SCANCODE_X] != 0) (1 << p8.k_dash) else 0;
-        var key_menu: u8 = if (current_key_states[sdl.SDL_SCANCODE_ESCAPE] != 0) (1 << p8.k_menu) else 0;
+        const one: u8 = 1;
+        var key_left: u8 = if (current_key_states[sdl.SDL_SCANCODE_LEFT] != 0) (one << p8.k_left.to_int(u3)) else 0;
+        var key_right: u8 = if (current_key_states[sdl.SDL_SCANCODE_RIGHT] != 0) (one << p8.k_right.to_int(u3)) else 0;
+        var key_up: u8 = if (current_key_states[sdl.SDL_SCANCODE_UP] != 0) (one << p8.k_up.to_int(u3)) else 0;
+        var key_down: u8 = if (current_key_states[sdl.SDL_SCANCODE_DOWN] != 0) (one << p8.k_down.to_int(u3)) else 0;
+        var key_jump: u8 = if (current_key_states[sdl.SDL_SCANCODE_Z] != 0) (one << p8.k_jump.to_int(u3)) else 0;
+        var key_dash: u8 = if (current_key_states[sdl.SDL_SCANCODE_X] != 0) (one << p8.k_dash.to_int(u3)) else 0;
+        var key_menu: u8 = if (current_key_states[sdl.SDL_SCANCODE_ESCAPE] != 0) (one << p8.k_menu.to_int(u3)) else 0;
 
         if (current_key_states[sdl.SDLK_z] != 0) {
-            key_jump = 1 << p8.k_jump;
+            key_jump = one << p8.k_jump.to_int(u3);
         }
         if (current_key_states[sdl.SDLK_x] != 0) {
-            key_dash = 1 << p8.k_dash;
+            key_dash = one << p8.k_dash.to_int(u3);
         }
 
         if (controller) |_| {
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_DPAD_LEFT) != 0) {
-                key_left = 1 << p8.k_left;
+                key_left = one << p8.k_left.to_int(u3);
             }
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_DPAD_RIGHT) != 0) {
-                key_right = 1 << p8.k_right;
+                key_right = one << p8.k_right.to_int(u3);
             }
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_DPAD_UP) != 0) {
-                key_up = 1 << p8.k_up;
+                key_up = one << p8.k_up.to_int(u3);
             }
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_DPAD_DOWN) != 0) {
-                key_down = 1 << p8.k_down;
+                key_down = one << p8.k_down.to_int(u3);
             }
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_A) != 0 or sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_Y) != 0) {
-                key_jump = 1 << p8.k_jump;
+                key_jump = one << p8.k_jump.to_int(u3);
             }
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_B) != 0 or sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_X) != 0) {
-                key_dash = 1 << p8.k_dash;
+                key_dash = one << p8.k_dash.to_int(u3);
             }
             if (sdl.SDL_GameControllerGetButton(controller, sdl.SDL_CONTROLLER_BUTTON_START) != 0) {
-                key_menu = 1 << p8.k_menu;
+                key_menu = one << p8.k_menu.to_int(u3);
             }
         }
 
@@ -523,16 +532,16 @@ fn draw_symbol(symbol: u8, x: c_int, y: c_int, col: usize) void {
 
 fn p8_btn(button: P8API.num) bool {
     const one: u8 = 1;
-    return (button_state & (one << @as(u3, @intFromFloat(button))) != 0);
+    return (button_state & (one << button.to_int(u3)) != 0);
 }
 fn p8_sfx(id: P8API.num) void {
-    const sfx_id: usize = @intFromFloat(id);
+    const sfx_id: usize = id.to_int(usize);
     audio_engine.play_sfx(sfx_id);
 }
 
 fn p8_music(id: P8API.num, fade: P8API.num, mask: P8API.num) void {
-    const music_id: isize = @intFromFloat(id);
-    audio_engine.play_music(music_id, @intFromFloat(fade), @intFromFloat(mask));
+    const music_id: isize = id.to_int(isize);
+    audio_engine.play_music(music_id, fade.to_int(u32), mask.to_int(u32));
 }
 fn p8_pal_reset() void {
     var i: usize = 0;
@@ -544,14 +553,14 @@ fn p8_pal_reset() void {
 }
 
 fn p8_pal(x: P8API.num, y: P8API.num) void {
-    const xi: usize = @intFromFloat(x);
-    palette[xi] = base_palette[@intFromFloat(y)];
-    font_textures[xi] = base_font_textures[@intFromFloat(y)];
+    const xi: usize = x.to_int(usize);
+    palette[xi] = base_palette[y.to_int(usize)];
+    font_textures[xi] = base_font_textures[y.to_int(usize)];
     should_reload_gfx_texture = true;
 }
 
-var camera_x: P8API.num = 0;
-var camera_y: P8API.num = 0;
+var camera_x: P8API.num = n(0);
+var camera_y: P8API.num = n(0);
 fn p8_camera(x: P8API.num, y: P8API.num) void {
     if (pause_menu.screen_shake) {
         camera_x = x;
@@ -560,9 +569,9 @@ fn p8_camera(x: P8API.num, y: P8API.num) void {
 }
 
 fn p8_print(str: []const u8, x_arg: P8API.num, y_arg: P8API.num, col: P8API.num) void {
-    const col_idx: usize = @intFromFloat(@mod(col, 16));
-    var x: c_int = @intFromFloat(x_arg - camera_x);
-    const y: c_int = @intFromFloat(y_arg - camera_y);
+    const col_idx: usize = col.mod(n(16)).to_int(usize);
+    var x: c_int = x_arg.sub(camera_x).to_int(c_int);
+    const y: c_int = y_arg.sub(camera_y).to_int(c_int);
 
     for (str) |cconst| {
         var c = cconst;
@@ -577,8 +586,8 @@ fn p8_print(str: []const u8, x_arg: P8API.num, y_arg: P8API.num, col: P8API.num)
 fn screen_rect(x: P8API.num, y: P8API.num, w: c_int, h: c_int) sdl.SDL_Rect {
     const scale = @as(c_int, @intCast(view_port.scale));
     var rect: sdl.SDL_Rect = undefined;
-    rect.x = @as(c_int, @intFromFloat(x - camera_x)) * scale + view_port.x;
-    rect.y = @as(c_int, @intFromFloat(y - camera_y)) * scale + view_port.y;
+    rect.x = x.sub(camera_x).to_int(c_int) * scale + view_port.x;
+    rect.y = y.sub(camera_y).to_int(c_int) * scale + view_port.y;
     rect.w = w * scale;
     rect.h = h * scale;
     //std.log.debug("dest_rect({d:6.1}, {d:6.1}, {}, {}) -> {}", .{ x, y, w, h, rect });
@@ -586,38 +595,38 @@ fn screen_rect(x: P8API.num, y: P8API.num, w: c_int, h: c_int) sdl.SDL_Rect {
 }
 
 fn p8_line(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8API.num) void {
-    const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
+    const c = palette[col.mod(n(palette.len)).to_int(usize)];
     _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
 
-    if (x1 != x2) {
-        std.log.err("only vertical lines are supported ({d:6.1},{d:6.1})({d:6.1},{d:6.1})", .{ x1, y1, x2, y2 });
+    if (x1.ne(x2)) {
+        std.log.err("only vertical lines are supported ({d:6.1},{d:6.1})({d:6.1},{d:6.1})", .{ x1.to_float(f32), y1.to_float(f32), x2.to_float(f32), y2.to_float(f32) });
         return;
     }
 
-    _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x1, @min(y1, y2), 1, @as(c_int, @intFromFloat(y2 - y1 + 1))));
+    _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x1, y1.min(y2), 1, y2.sub(y1).add(n(1)).to_int(c_int)));
 }
 
 fn p8_rectfill(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8API.num) void {
-    const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
+    const c = palette[col.mod(n(palette.len)).to_int(usize)];
     _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
 
-    const rect = screen_rect(x1, y1, @intFromFloat(x2 - x1 + 1), @intFromFloat(y2 - y1 + 1));
+    const rect = screen_rect(x1, y1, x2.sub(x1).add(n(1)).to_int(c_int), y2.sub(y1).add(n(1)).to_int(c_int));
     _ = sdl.SDL_RenderFillRect(renderer, &rect);
 }
 
 fn p8_circfill(x: P8API.num, y: P8API.num, r: P8API.num, col: P8API.num) void {
-    const c = palette[@mod(@as(usize, @intFromFloat(col)), palette.len)];
+    const c = palette[col.mod(n(palette.len)).to_int(usize)];
     _ = sdl.SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 0xff);
-    if (r <= 1) {
-        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 1, y, 3, 1));
-        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x, y - 1, 1, 3));
-    } else if (r <= 2) {
-        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 2, y - 1, 5, 3));
-        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 1, y - 2, 3, 5));
-    } else if (r <= 3) {
-        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 3, y - 1, 7, 3));
-        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 1, y - 3, 3, 7));
-        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x - 2, y - 2, 5, 5));
+    if (r.le(n(1))) {
+        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x.sub(n(1)), y, 3, 1));
+        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x, y.sub(n(1)), 1, 3));
+    } else if (r.le(n(2))) {
+        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x.sub(n(2)), y.sub(n(1)), 5, 3));
+        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x.sub(n(1)), y.sub(n(2)), 3, 5));
+    } else if (r.le(n(3))) {
+        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x.sub(n(3)), y.sub(n(1)), 7, 3));
+        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x.sub(n(1)), y.sub(n(3)), 3, 7));
+        _ = sdl.SDL_RenderFillRect(renderer, &screen_rect(x.sub(n(2)), y.sub(n(2)), 5, 5));
     }
 }
 
@@ -628,11 +637,10 @@ fn p8_spr(sprite: P8API.num, x: P8API.num, y: P8API.num, w: P8API.num, h: P8API.
 
     reload_textures(renderer);
 
-    if (sprite >= 0) {
+    if (sprite.ge(n(0))) {
         var src_rect: sdl.SDL_Rect = undefined;
-        src_rect.x = @intCast(8 * @as(c_int, @intFromFloat(@mod(sprite, 16))));
-
-        src_rect.y = @intCast(8 * @as(c_int, @intFromFloat(@divTrunc(sprite, 16))));
+        src_rect.x = sprite.mod(n(16)).to_int(c_int) * 8;
+        src_rect.y = sprite.divTrunc(n(16)).to_int(c_int) * 8;
         src_rect.w = @intCast(8);
         src_rect.h = @intCast(8);
 
@@ -648,7 +656,7 @@ fn p8_spr(sprite: P8API.num, x: P8API.num, y: P8API.num, w: P8API.num, h: P8API.
 
 // sprite flags
 fn p8_fget(tile: usize, flag: P8API.num) bool {
-    const f: u5 = @intFromFloat(flag);
+    const f: u5 = flag.to_int(u5);
     const one: u32 = 1;
     return tile < cart_data.gff.len and (cart_data.gff[tile] & (one << f)) != 0;
 }
@@ -657,23 +665,23 @@ fn p8_fget(tile: usize, flag: P8API.num) bool {
 fn p8_map(cel_x: P8API.num, cel_y: P8API.num, screen_x: P8API.num, screen_y: P8API.num, cel_w: P8API.num, cel_h: P8API.num, mask: P8API.num) void {
     reload_textures(renderer);
 
-    var x: P8API.num = 0;
+    var x: P8API.num = n(0);
     const map_len = cart_data.map_low.len + cart_data.map_high.len;
-    while (x < cel_w) : (x += 1) {
-        var y: P8API.num = 0;
-        while (y < cel_h) : (y += 1) {
-            const tile_index: usize = @intFromFloat(x + cel_x + (y + cel_y) * 128);
+    while (x.lt(cel_w)) : (x = x.add(n(1))) {
+        var y: P8API.num = n(0);
+        while (y.lt(cel_h)) : (y = y.add(n(1))) {
+            const tile_index: usize = x.add(cel_x).add(y.add(cel_y).mul(n(128))).to_int(usize);
             if (tile_index < map_len) {
                 const idx = @mod(tile_index, map_len);
                 const tile: u8 = if (idx < cart_data.map_low.len) cart_data.map_low[idx] else cart_data.map_high[idx - cart_data.map_low.len];
-                if (mask == 0 or (mask == 4 and cart_data.gff[tile] == 4) or p8_fget(tile, if (mask != 4) mask - 1 else mask)) {
+                if (mask.eq(n(0)) or (mask.eq(n(4)) and cart_data.gff[tile] == 4) or p8_fget(tile, if (mask.ne(n(4))) mask.sub(n(1)) else mask)) {
                     var src_rect: sdl.SDL_Rect = undefined;
                     src_rect.x = @intCast(8 * @mod(tile, 16));
                     src_rect.y = @intCast(8 * @divTrunc(tile, 16));
                     src_rect.w = @intCast(8);
                     src_rect.h = @intCast(8);
 
-                    const dst_rect = screen_rect(screen_x + x * 8, screen_y + y * 8, 8, 8);
+                    const dst_rect = screen_rect(screen_x.add(x.mul(n(8))), screen_y.add(y.mul(n(8))), 8, 8);
 
                     _ = sdl.SDL_RenderCopy(renderer, gfx_texture, &src_rect, &dst_rect);
                 }
@@ -683,53 +691,41 @@ fn p8_map(cel_x: P8API.num, cel_y: P8API.num, screen_x: P8API.num, screen_y: P8A
 }
 
 fn p8_mget(tx: P8API.num, ty: P8API.num) P8API.tile {
-    if (ty <= 31) {
-        const idx: usize = @intFromFloat(tx + ty * 128);
+    if (ty.le(n(31))) {
+        const idx: usize = tx.add(ty.mul(n(128))).to_int(usize);
         return @intCast(cart_data.map_low[idx]);
     } else {
-        const idx: usize = @intFromFloat(tx + (ty - 32) * 128);
+        const idx: usize = tx.add(ty.sub(n(32)).mul(n(128))).to_int(usize);
         return @intCast(cart_data.map_high[idx]);
     }
 }
 // math
-fn p8_abs(n: P8API.num) P8API.num {
-    return @abs(n);
+fn p8_abs(x: P8API.num) P8API.num {
+    return x.abs();
 }
 
-fn p8_flr(n: P8API.num) P8API.num {
-    return @floor(n);
+fn p8_flr(x: P8API.num) P8API.num {
+    return x.floor();
 }
 
 fn p8_min(n1: P8API.num, n2: P8API.num) P8API.num {
-    return @min(n1, n2);
+    return n1.min(n2);
 }
 
 fn p8_max(n1: P8API.num, n2: P8API.num) P8API.num {
-    return @max(n1, n2);
-}
-
-var rnd_seed_lo: i64 = 0;
-var rnd_seed_hi: i64 = 1;
-fn pico8_random(max: P8API.num) i64 { //decomp'd pico-8
-    if (max == 0) {
-        return 0;
-    }
-    rnd_seed_hi = @addWithOverflow(((rnd_seed_hi << 16) | (rnd_seed_hi >> 16)), rnd_seed_lo)[0];
-    rnd_seed_lo = @addWithOverflow(rnd_seed_lo, rnd_seed_hi)[0];
-    return @mod(rnd_seed_hi, @as(i64, @intFromFloat(max)));
+    return n1.max(n2);
 }
 
 fn p8_rnd(rnd_max: P8API.num) P8API.num {
-    const n: i64 = pico8_random(10000 * rnd_max);
-    return @as(P8API.num, @floatFromInt(n)) / 10000;
+    return P8API.num.random(rnd_max);
 }
 
 fn p8_sin(x: P8API.num) P8API.num {
-    return -std.math.sin(x * 6.2831853071796); //https://pico-8.fandom.com/wiki/Math
+    return x.mul(nf(6.2831853071796)).sin().neg(); //https://pico-8.fandom.com/wiki/Math
 }
 
 fn p8_cos(x: P8API.num) P8API.num {
-    return -p8_sin((x) + 0.25);
+    return p8_sin(x.add(nf(0.25))).neg();
 }
 
 const p8_api = P8API{
