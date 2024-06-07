@@ -1,7 +1,7 @@
 const std = @import("std");
 const Step = std.Build.Step;
 
-pub fn download_carts(step: *Step, prog_node: *std.Progress.Node) !void {
+pub fn download_carts(step: *Step, prog_node: std.Progress.Node) !void {
     _ = step;
     _ = prog_node;
 
@@ -16,16 +16,15 @@ pub fn download_carts(step: *Step, prog_node: *std.Progress.Node) !void {
     var http_client = http.Client{ .allocator = allocator };
     defer http_client.deinit();
 
-    var http_headers = std.http.Headers{ .allocator = allocator };
-    defer http_headers.deinit();
-    try http_headers.append("accept", "*/*");
+    const header_buffer = try allocator.alloc(u8, 1024);
+    defer allocator.free(header_buffer);
 
     const uri = std.Uri.parse("https://www.lexaloffle.com/bbs/cposts/1/15133.p8.png") catch unreachable;
 
-    var http_request = try http_client.request(.GET, uri, http_headers, .{});
+    var http_request = try http_client.open(.GET, uri, .{ .server_header_buffer = header_buffer });
     defer http_request.deinit();
 
-    try http_request.start();
+    try http_request.send();
     try http_request.wait();
 
     const cart = try http_request.reader().readAllAlloc(allocator, 48 * 1024);
@@ -37,7 +36,7 @@ pub fn download_carts(step: *Step, prog_node: *std.Progress.Node) !void {
     try cart_file.writeAll(cart);
 }
 
-pub fn create_cart_download_step(b: *std.build.Builder) *Step {
+pub fn create_cart_download_step(b: *std.Build) *Step {
     const self = b.allocator.create(Step) catch @panic("OOM");
     self.* = Step.init(.{
         .id = Step.Id.custom,
@@ -64,7 +63,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     //// Cart download
-    var cart_download_step = create_cart_download_step(b);
+    const cart_download_step = create_cart_download_step(b);
     const cart_download_run_step = b.step("download-cart", "Download celeste classic cart");
     cart_download_run_step.dependOn(cart_download_step);
 
@@ -73,15 +72,15 @@ pub fn build(b: *std.Build) void {
         .name = "cart_extractor",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = .{ .path = "src/cart_extractor/main.zig" },
+        .root_source_file = b.path("src/cart_extractor/main.zig"),
         .target = target,
         .optimize = optimize,
     });
     cart_extractor.linkLibC();
 
-    cart_extractor.addIncludePath(.{ .path = "src/cart_extractor/" });
+    cart_extractor.addIncludePath(b.path("src/cart_extractor/"));
     cart_extractor.addCSourceFile(.{
-        .file = .{ .path = "src/cart_extractor/stb_image.c" },
+        .file = b.path("src/cart_extractor/stb_image.c"),
         .flags = &[_][]const u8{"-std=c99"},
         //.flags = &[_][]const u8{},
     });
@@ -92,11 +91,11 @@ pub fn build(b: *std.Build) void {
     //// Libretro core
     const libretro_core = b.addSharedLibrary(.{
         .name = "retro-celeste_clazzig",
-        .root_source_file = .{ .path = "src/main_libretro.zig" },
+        .root_source_file = b.path("src/main_libretro.zig"),
         .target = target,
         .optimize = optimize,
     });
-    libretro_core.addIncludePath(.{ .path = "src" });
+    libretro_core.addIncludePath(b.path("src"));
     libretro_core.step.dependOn(&extract_cart.step);
     b.installArtifact(libretro_core);
 
@@ -105,12 +104,12 @@ pub fn build(b: *std.Build) void {
         .name = "celeste_clazzig_sdl2",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = .{ .path = "src/main_sdl2.zig" },
+        .root_source_file = b.path("src/main_sdl2.zig"),
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
     });
-    game.linkSystemLibrary("SDL2");
+    game.linkLibC();
+    game.linkSystemLibrary("sdl2");
 
     game.step.dependOn(&extract_cart.step);
 
@@ -145,7 +144,7 @@ pub fn build(b: *std.Build) void {
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });

@@ -442,7 +442,7 @@ fn p8_camera(x: P8API.num, y: P8API.num) void {
 }
 
 fn p8_print(str: []const u8, x_arg: P8API.num, y_arg: P8API.num, col: P8API.num) void {
-    var col_idx: usize = @intFromFloat(@mod(col, 16));
+    const col_idx: usize = @intFromFloat(@mod(col, 16));
     var x: c_int = @as(c_int, @intFromFloat(x_arg)) - @as(c_int, @intCast(retro_data.camera_x));
     const y: c_int = @as(c_int, @intFromFloat(y_arg)) - @as(c_int, @intCast(retro_data.camera_y));
 
@@ -482,7 +482,7 @@ fn p8_line(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8AP
         return;
     }
 
-    var x: isize = p8_num_to_screen(x1);
+    const x: isize = p8_num_to_screen(x1);
     var y: isize = p8_num_to_screen(@min(y1, y2));
     const y_max: isize = p8_num_to_screen(@max(y1, y2));
     while (y < y_max) : (y += 1) {
@@ -491,7 +491,7 @@ fn p8_line(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8AP
 }
 
 fn dim(d1: P8API.num, d2: P8API.num) usize {
-    return @intFromFloat(@fabs(d2 - d1));
+    return @intFromFloat(@abs(d2 - d1));
 }
 
 fn p8_rectfill(x1: P8API.num, y1: P8API.num, x2: P8API.num, y2: P8API.num, col: P8API.num) void {
@@ -602,7 +602,7 @@ fn p8_mget(tx: P8API.num, ty: P8API.num) P8API.tile {
 }
 // math
 fn p8_abs(n: P8API.num) P8API.num {
-    return @fabs(n);
+    return @abs(n);
 }
 
 fn p8_flr(n: P8API.num) P8API.num {

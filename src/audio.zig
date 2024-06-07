@@ -10,7 +10,7 @@ const Waveform = struct {
     const period: f64 = 1;
 
     pub fn triangle(t: f64) f64 {
-        return 0.5 * (@fabs(4.0 * t - 2.0) - 1.0);
+        return 0.5 * (@abs(4.0 * t - 2.0) - 1.0);
     }
 
     pub fn square(t: f64) f64 {
@@ -32,12 +32,12 @@ const Waveform = struct {
 
     fn organ(t: f64) f64 {
         const t4 = t * 4;
-        return (@fabs(@mod(t4, 2) - 1) - 0.5 + (@fabs(@mod(t4 * 0.5, 2) - 1) - 0.5) / 2.0 - 0.1);
+        return (@abs(@mod(t4, 2) - 1) - 0.5 + (@abs(@mod(t4 * 0.5, 2) - 1) - 0.5) / 2.0 - 0.1);
     }
 
     fn phaser(t: f64) f64 {
         const t2 = t * 4;
-        return (@fabs(@mod(t2, 2) - 1) - 0.5 + (@fabs(@mod((t2 * 127 / 128), 2) - 1) - 0.5) / 2) - 0.25;
+        return (@abs(@mod(t2, 2) - 1) - 0.5 + (@abs(@mod((t2 * 127 / 128), 2) - 1) - 0.5) / 2) - 0.25;
     }
 
     var noise_seed_lo: i64 = 0;
@@ -191,7 +191,7 @@ const AudioChannel = struct {
             2 => { // VIBRATO
                 const nd = note_duration * self.sfx_speed;
 
-                const t = (@fabs(@mod(self.current_note_duration / nd, 1) * 2 - 1) * 2 - 1) * 0.7;
+                const t = (@abs(@mod(self.current_note_duration / nd, 1) * 2 - 1) * 2 - 1) * 0.7;
                 const vibrato = note_freq * semitone;
                 note_freq = (vibrato - self.note_freq) * t + self.note_freq;
             },

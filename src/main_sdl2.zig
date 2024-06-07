@@ -46,7 +46,7 @@ var font_textures: [16]*Texture = undefined;
 var should_reload_gfx_texture: bool = false;
 
 fn load_texture(r: *Renderer, spritesheet: []const u8, width: usize, height: usize) ?*Texture {
-    var surface = sdl.SDL_CreateRGBSurface(0, @intCast(width), @intCast(height), 32, 0, 0, 0, 0);
+    const surface = sdl.SDL_CreateRGBSurface(0, @intCast(width), @intCast(height), 32, 0, 0, 0, 0);
     defer sdl.SDL_FreeSurface(surface);
 
     const format = surface.*.format;
@@ -54,7 +54,7 @@ fn load_texture(r: *Renderer, spritesheet: []const u8, width: usize, height: usi
     const color_key = sdl.SDL_MapRGB(format, c.r, c.g, c.b);
     _ = sdl.SDL_SetColorKey(surface, sdl.SDL_TRUE, color_key);
 
-    var surface_renderer = sdl.SDL_CreateSoftwareRenderer(surface);
+    const surface_renderer = sdl.SDL_CreateSoftwareRenderer(surface);
     defer sdl.SDL_DestroyRenderer(surface_renderer);
 
     var i: usize = 0;
@@ -143,7 +143,7 @@ var audio_engine = AudioEngine.init();
 
 pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len: c_int) callconv(.C) void {
     _ = arg_userdata;
-    var stream = arg_stream;
+    const stream = arg_stream;
     var len = arg_len;
     var snd: [*c]c_short = @as([*c]c_short, @ptrCast(@alignCast(stream)));
     len = @divTrunc(len, @sizeOf(c_short));
@@ -379,7 +379,7 @@ pub fn main() !void {
     desired_audio_spec.userdata = null;
     desired_audio_spec.callback = &sdl_audio_callback;
 
-    var audio_device = sdl.SDL_OpenAudioDevice(0, 0, &desired_audio_spec, &obtained_audio_spec, 0);
+    const audio_device = sdl.SDL_OpenAudioDevice(0, 0, &desired_audio_spec, &obtained_audio_spec, 0);
     defer sdl.SDL_CloseAudioDevice(audio_device);
     if (audio_device == 0) {
         sdl.SDL_Log("Unable to initialize audio: %s", sdl.SDL_GetError());
@@ -560,7 +560,7 @@ fn p8_camera(x: P8API.num, y: P8API.num) void {
 }
 
 fn p8_print(str: []const u8, x_arg: P8API.num, y_arg: P8API.num, col: P8API.num) void {
-    var col_idx: usize = @intFromFloat(@mod(col, 16));
+    const col_idx: usize = @intFromFloat(@mod(col, 16));
     var x: c_int = @intFromFloat(x_arg - camera_x);
     const y: c_int = @intFromFloat(y_arg - camera_y);
 
@@ -693,7 +693,7 @@ fn p8_mget(tx: P8API.num, ty: P8API.num) P8API.tile {
 }
 // math
 fn p8_abs(n: P8API.num) P8API.num {
-    return @fabs(n);
+    return @abs(n);
 }
 
 fn p8_flr(n: P8API.num) P8API.num {

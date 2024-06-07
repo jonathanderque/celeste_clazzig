@@ -217,9 +217,9 @@ pub fn celeste(comptime p8_api: P8API) type {
                 } else {
 
                     // move
-                    var maxrun: P8API.num = 1;
+                    const maxrun: P8API.num = 1;
                     var accel: P8API.num = 0.6;
-                    var deccel: P8API.num = 0.15;
+                    const deccel: P8API.num = 0.15;
 
                     if (!on_ground) {
                         accel = 0.4;
@@ -513,7 +513,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                         self.delay = 0;
                     }
                 } else if (common.spr == 18) {
-                    var hit_opt = common.collide(EntityType.player, 0, 0);
+                    const hit_opt = common.collide(EntityType.player, 0, 0);
                     if (hit_opt) |hit| {
                         if (hit.common.spd.y >= 0) {
                             common.spr = 19;
@@ -525,7 +525,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                             init_object(EntityType.smoke, common.x, common.y);
 
                             // breakable below us
-                            var below_opt = common.collide(EntityType.fall_floor, 0, 1);
+                            const below_opt = common.collide(EntityType.fall_floor, 0, 1);
                             if (below_opt) |below| {
                                 break_fall_floor(&below.specific.fall_floor, &below.common);
                             }
@@ -570,7 +570,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                 if (common.spr == 22) {
                     self.offset += 0.01;
                     common.y = self.start + p8_api.sin(self.offset) * 2;
-                    var hit_opt = common.collide(EntityType.player, 0, 0);
+                    const hit_opt = common.collide(EntityType.player, 0, 0);
                     if (hit_opt) |hit| {
                         if (hit.specific.player.djump < max_djump) {
                             psfx(6);
@@ -646,7 +646,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                 self.state = 1;
                 self.delay = 15; // how long until it falls
                 init_object(EntityType.smoke, common.x, common.y);
-                var hit_opt = common.collide(EntityType.spring, 0, -1);
+                const hit_opt = common.collide(EntityType.spring, 0, -1);
                 if (hit_opt) |hit| {
                     break_spring(&hit.specific.spring);
                 }
@@ -685,7 +685,7 @@ pub fn celeste(comptime p8_api: P8API) type {
             }
 
             fn update(self: *Fruit, common: *ObjectCommon) void {
-                var hit_opt = common.collide(EntityType.player, 0, 0);
+                const hit_opt = common.collide(EntityType.player, 0, 0);
                 if (hit_opt) |hit| {
                     hit.specific.player.djump = max_djump;
                     sfx_timer = 20;
@@ -737,7 +737,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                     common.spd.y = p8_api.sin(self.step) * 0.5;
                 }
                 // collect
-                var hit_opt = common.collide(EntityType.player, 0, 0);
+                const hit_opt = common.collide(EntityType.player, 0, 0);
                 if (hit_opt) |hit| {
                     hit.specific.player.djump = max_djump;
                     sfx_timer = 20;
@@ -754,7 +754,7 @@ pub fn celeste(comptime p8_api: P8API) type {
             fn draw(self: *FlyFruit, common: *ObjectCommon) void {
                 var off: P8API.num = 0;
                 if (!self.fly) {
-                    var dir = p8_api.sin(self.step);
+                    const dir = p8_api.sin(self.step);
                     if (dir < 0) {
                         off = 1 + p8_api.max(0, sign(common.y - self.start));
                     }
@@ -796,7 +796,7 @@ pub fn celeste(comptime p8_api: P8API) type {
             fn update(self: *FakeWall, common: *ObjectCommon) void {
                 _ = self;
                 common.hitbox = P8Rect{ .x = -1, .y = -1, .w = 18, .h = 18 };
-                var hit_opt = common.collide(EntityType.player, 0, 0);
+                const hit_opt = common.collide(EntityType.player, 0, 0);
                 if (hit_opt) |hit| {
                     if (hit.specific.player.dash_effect_time > 0) {
                         hit.common.spd.x = -sign(hit.common.spd.x) * 1.5;
@@ -890,7 +890,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                     common.x = -16;
                 }
                 if (!common.check(EntityType.player, 0, 0)) {
-                    var hit_opt = common.collide(EntityType.player, 0, -1);
+                    const hit_opt = common.collide(EntityType.player, 0, -1);
                     if (hit_opt) |hit| {
                         hit.common.move_x(common.x - self.last, 1);
                     }
@@ -953,7 +953,7 @@ pub fn celeste(comptime p8_api: P8API) type {
 
             fn draw(self: *BigChest, common: *ObjectCommon) void {
                 if (self.state == 0) {
-                    var hit_opt = common.collide(EntityType.player, 0, 8);
+                    const hit_opt = common.collide(EntityType.player, 0, 8);
                     if (hit_opt) |hit| {
                         if (hit.common.is_solid(0, 1)) {
                             p8_api.music(-1, 500, 7);
@@ -1018,7 +1018,7 @@ pub fn celeste(comptime p8_api: P8API) type {
             fn draw(self: *Orb, common: *ObjectCommon) void {
                 _ = self;
                 common.spd.y = appr(common.spd.y, 0, 0.5);
-                var hit_opt = common.collide(EntityType.player, 0, 0);
+                const hit_opt = common.collide(EntityType.player, 0, 0);
                 if (hit_opt) |hit| {
                     if (common.spd.y == 0) {
                         music_timer = 45;
@@ -1315,7 +1315,7 @@ pub fn celeste(comptime p8_api: P8API) type {
 
             var common: ObjectCommon = undefined;
             common.init(x, y, etype);
-            var specific: ObjectSpecific =
+            const specific: ObjectSpecific =
                 switch (etype) {
                 EntityType.balloon => blk: {
                     var b: Balloon = undefined;
@@ -1338,7 +1338,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                     break :blk ObjectSpecific{ .fall_floor = f };
                 },
                 EntityType.fake_wall => blk: {
-                    var f: FakeWall = FakeWall{};
+                    const f: FakeWall = FakeWall{};
                     break :blk ObjectSpecific{ .fake_wall = f };
                 },
                 EntityType.flag => blk: {
@@ -1357,7 +1357,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                     break :blk ObjectSpecific{ .fruit = f };
                 },
                 EntityType.key => blk: {
-                    var k: Key = Key{};
+                    const k: Key = Key{};
                     break :blk ObjectSpecific{ .key = k };
                 },
                 EntityType.life_up => blk: {
@@ -1366,7 +1366,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                     break :blk ObjectSpecific{ .life_up = s };
                 },
                 EntityType.message => blk: {
-                    var m: Message = undefined;
+                    const m: Message = undefined;
                     break :blk ObjectSpecific{ .message = m };
                 },
                 EntityType.orb => blk: {
