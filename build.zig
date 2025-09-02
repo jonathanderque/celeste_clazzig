@@ -55,6 +55,7 @@ pub fn build(b: *std.Build) void {
     //// Libretro core
     const libretro_core = b.addLibrary(.{
         .name = "retro-celeste_clazzig",
+        .linkage = .dynamic,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main_libretro.zig"),
             .target = target,
