@@ -12,7 +12,7 @@ This is work in progress:
 
 # Installation
 
-The game requires Zig v0.11.0 and SDL2 installed.
+Building the game requires Zig v0.15.1 and SDL2 installed.
 
 The game also needs the original game cart from which sounds and graphics are extracted. The cart can be downloaded by running:
 
@@ -23,10 +23,10 @@ zig build download-cart
 The game can then be built and run with:
 
 ```shell
-zig build run
+zig build -Doptimize=ReleaseSafe run
 ```
 
-At this point, this has only be tested on Linux.
+At this point, this has only be tested on Linux. Note that Debug builds are currently broken.
 
 Additionally, `zig build` will also compile a libretro core. The core can then be run with:
 
