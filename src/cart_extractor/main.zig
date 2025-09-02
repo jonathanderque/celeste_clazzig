@@ -11,21 +11,21 @@ const Writer = std.fs.File.Writer;
 pub fn assert_file_exists(path: []const u8) !void {
     var file = std.fs.cwd().openFile(path, .{}) catch |e|
         switch (e) {
-        error.PathAlreadyExists => {
-            return;
-        },
-        else => {
-            std.log.err("could not find celeste cart ({s}).", .{path});
-            std.log.err("Supply your own or run:", .{});
-            std.log.err("  zig build download-cart", .{});
-            return e;
-        },
-    };
+            error.PathAlreadyExists => {
+                return;
+            },
+            else => {
+                std.log.err("could not find celeste cart ({s}).", .{path});
+                std.log.err("Supply your own or run:", .{});
+                std.log.err("  zig build download-cart", .{});
+                return e;
+            },
+        };
     defer file.close();
 }
 
-pub fn extract(allocator: Allocator, path: []const u8, w: Writer) !void {
-    var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+pub fn extract(allocator: Allocator, path: []const u8, w: *std.Io.Writer) !void {
+    var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
     const image_path = try std.fs.realpath(path, &path_buffer);
     const image_file = try std.fs.openFileAbsolute(image_path, .{});
     defer image_file.close();
@@ -41,7 +41,7 @@ pub fn extract(allocator: Allocator, path: []const u8, w: Writer) !void {
     const img_data = stbi.stbi_load_from_memory(@ptrCast(file_content), @intCast(file_content.len), &width, &height, &channels, 0);
     const raw = img_data[0..@intCast(width * height * channels)];
 
-    var rom = ArrayList(u8).init(allocator);
+    var rom = std.array_list.Managed(u8).init(allocator);
     defer rom.deinit();
     var i: usize = 0;
     while (i < raw.len) : (i += @intCast(channels)) {
@@ -74,6 +74,7 @@ pub fn extract(allocator: Allocator, path: []const u8, w: Writer) !void {
     try w.writeAll("pub const gff = rom[0x3000 .. 0x3100];\n");
     try w.writeAll("pub const music = rom[0x3100 .. 0x3200];\n");
     try w.writeAll("pub const sfx = rom[0x3200 .. 0x4300];\n");
+    try w.flush();
 }
 
 pub fn main() !void {
@@ -86,14 +87,16 @@ pub fn main() !void {
     }
     const allocator = gpa.allocator();
 
-    var out_file = try std.fs.cwd().createFile("src/generated/celeste.zig", .{ .read = true });
-    defer out_file.close();
-
     const cart_path = "src/cart/15133.p8.png";
 
     assert_file_exists(cart_path) catch {
         std.process.exit(1);
     };
 
-    try extract(allocator, cart_path, out_file.writer());
+    var out_file = try std.fs.cwd().createFile("src/generated/celeste.zig", .{});
+    defer out_file.close();
+
+    var buffer: [4096]u8 = undefined;
+    var fs_writer = out_file.writer(&buffer);
+    try extract(allocator, cart_path, &fs_writer.interface);
 }

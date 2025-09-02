@@ -149,7 +149,7 @@ fn sdl_first_controller() ?*sdl.SDL_GameController {
 
 var audio_engine = AudioEngine.init();
 
-pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len: c_int) callconv(.C) void {
+pub fn sdl_audio_callback(arg_userdata: ?*anyopaque, arg_stream: [*c]u8, arg_len: c_int) callconv(.c) void {
     _ = arg_userdata;
     const stream = arg_stream;
     var len = arg_len;

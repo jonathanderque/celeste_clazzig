@@ -2,7 +2,7 @@
   description = "Celeste Clazzig";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     zig.url = "github:mitchellh/zig-overlay";
 
@@ -35,10 +35,12 @@
       in rec {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
-            zigpkgs."0.13.0"
-            #zigpkgs."master-2024-06-06" # 0.12.0-dev.587+eb072fa52
-            pkgs.zls
-            pkgs.SDL2
+              zigpkgs."0.15.1"
+              pkgs.zls
+              xorg.libX11
+              xorg.libXext
+              libGL
+              libpulseaudio
           ];
         };
 

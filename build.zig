@@ -1,52 +1,6 @@
 const std = @import("std");
 const Step = std.Build.Step;
 
-pub fn download_carts(step: *Step, prog_node: std.Progress.Node) !void {
-    _ = step;
-    _ = prog_node;
-
-    const http = std.http;
-
-    // find a way to reuse b.allocator instead?
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(gpa.deinit() == .ok);
-    const allocator = gpa.allocator();
-    // TODO: generate file!
-
-    var http_client = http.Client{ .allocator = allocator };
-    defer http_client.deinit();
-
-    const header_buffer = try allocator.alloc(u8, 1024);
-    defer allocator.free(header_buffer);
-
-    const uri = std.Uri.parse("https://www.lexaloffle.com/bbs/cposts/1/15133.p8.png") catch unreachable;
-
-    var http_request = try http_client.open(.GET, uri, .{ .server_header_buffer = header_buffer });
-    defer http_request.deinit();
-
-    try http_request.send();
-    try http_request.wait();
-
-    const cart = try http_request.reader().readAllAlloc(allocator, 48 * 1024);
-    defer allocator.free(cart);
-
-    var cart_file = try std.fs.cwd().createFile("src/cart/15133.p8.png", .{ .read = true });
-    defer cart_file.close();
-
-    try cart_file.writeAll(cart);
-}
-
-pub fn create_cart_download_step(b: *std.Build) *Step {
-    const self = b.allocator.create(Step) catch @panic("OOM");
-    self.* = Step.init(.{
-        .id = Step.Id.custom,
-        .owner = b,
-        .name = "download carts",
-        .makeFn = download_carts,
-    });
-    return self;
-}
-
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
@@ -62,19 +16,29 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    //// Cart download
-    const cart_download_step = create_cart_download_step(b);
+    //// Cart downloader
+    const cart_downloader_exe = b.addExecutable(.{
+        .name = "cart_downloader",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/cart_downloader/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const cart_download_run_cmd = b.addRunArtifact(cart_downloader_exe);
     const cart_download_run_step = b.step("download-cart", "Download celeste classic cart");
-    cart_download_run_step.dependOn(cart_download_step);
+    cart_download_run_step.dependOn(&cart_download_run_cmd.step);
 
     //// Cart asset extraction
     const cart_extractor = b.addExecutable(.{
         .name = "cart_extractor",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/cart_extractor/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/cart_extractor/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     cart_extractor.linkLibC();
 
@@ -89,27 +53,34 @@ pub fn build(b: *std.Build) void {
     const extract_cart = b.addRunArtifact(cart_extractor);
 
     //// Libretro core
-    const libretro_core = b.addSharedLibrary(.{
+    const libretro_core = b.addLibrary(.{
         .name = "retro-celeste_clazzig",
-        .root_source_file = b.path("src/main_libretro.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main_libretro.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     libretro_core.addIncludePath(b.path("src"));
     libretro_core.step.dependOn(&extract_cart.step);
     b.installArtifact(libretro_core);
 
     //// Game
+    const sdl_dep = b.dependency("SDL", .{
+        .optimize = optimize,
+        .target = target,
+    });
     const game = b.addExecutable(.{
         .name = "celeste_clazzig_sdl2",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
-        .root_source_file = b.path("src/main_sdl2.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main_sdl2.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
-    game.linkLibC();
-    game.linkSystemLibrary("sdl2");
+    game.linkLibrary(sdl_dep.artifact("SDL2"));
 
     game.step.dependOn(&extract_cart.step);
 
@@ -144,9 +115,11 @@ pub fn build(b: *std.Build) void {
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
     const unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/num_fixpoint.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/num_fixpoint.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     unit_tests.linkLibC();
 

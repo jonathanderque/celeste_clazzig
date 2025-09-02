@@ -414,12 +414,12 @@ pub fn celeste(comptime p8_api: P8API) type {
         fn set_hair_color(djump: P8API.num) void {
             const col =
                 if (djump.eq(n(1)))
-                n(8)
-            else
-                (if (djump.eq(n(2)))
-                    n(7).add(p8_api.flr(frames.div(n(3)).mod(n(2))).mul(n(4)))
+                    n(8)
                 else
-                    n(12));
+                    (if (djump.eq(n(2)))
+                        n(7).add(p8_api.flr(frames.div(n(3)).mod(n(2))).mul(n(4)))
+                    else
+                        n(12));
             p8_api.pal(n(8), col);
         }
 
@@ -1329,94 +1329,94 @@ pub fn celeste(comptime p8_api: P8API) type {
             common.init(x, y, etype);
             const specific: ObjectSpecific =
                 switch (etype) {
-                EntityType.balloon => blk: {
-                    var b: Balloon = undefined;
-                    b.init(&common);
-                    break :blk ObjectSpecific{ .balloon = b };
-                },
-                EntityType.big_chest => blk: {
-                    var b: BigChest = undefined;
-                    b.init(&common);
-                    break :blk ObjectSpecific{ .big_chest = b };
-                },
-                EntityType.chest => blk: {
-                    var c: Chest = undefined;
-                    c.init(&common);
-                    break :blk ObjectSpecific{ .chest = c };
-                },
-                EntityType.fall_floor => blk: {
-                    var f: FallFloor = undefined;
-                    f.init(&common);
-                    break :blk ObjectSpecific{ .fall_floor = f };
-                },
-                EntityType.fake_wall => blk: {
-                    const f: FakeWall = FakeWall{};
-                    break :blk ObjectSpecific{ .fake_wall = f };
-                },
-                EntityType.flag => blk: {
-                    var f: Flag = undefined;
-                    f.init(&common);
-                    break :blk ObjectSpecific{ .flag = f };
-                },
-                EntityType.fly_fruit => blk: {
-                    var f: FlyFruit = undefined;
-                    f.init(&common);
-                    break :blk ObjectSpecific{ .fly_fruit = f };
-                },
-                EntityType.fruit => blk: {
-                    var f: Fruit = undefined;
-                    f.init(&common);
-                    break :blk ObjectSpecific{ .fruit = f };
-                },
-                EntityType.key => blk: {
-                    const k: Key = Key{};
-                    break :blk ObjectSpecific{ .key = k };
-                },
-                EntityType.life_up => blk: {
-                    var s: LifeUp = undefined;
-                    s.init(&common);
-                    break :blk ObjectSpecific{ .life_up = s };
-                },
-                EntityType.message => blk: {
-                    const m: Message = undefined;
-                    break :blk ObjectSpecific{ .message = m };
-                },
-                EntityType.orb => blk: {
-                    var o: Orb = undefined;
-                    o.init(&common);
-                    break :blk ObjectSpecific{ .orb = o };
-                },
-                EntityType.smoke => blk: {
-                    var s: Smoke = undefined;
-                    s.init(&common);
-                    break :blk ObjectSpecific{ .smoke = s };
-                },
-                EntityType.platform => blk: {
-                    var s: Platform = undefined;
-                    s.init(&common);
-                    break :blk ObjectSpecific{ .platform = s };
-                },
-                EntityType.room_title => blk: {
-                    var s: RoomTitle = undefined;
-                    s.init();
-                    break :blk ObjectSpecific{ .room_title = s };
-                },
-                EntityType.player_spawn => blk: {
-                    var s: PlayerSpawn = undefined;
-                    s.init(&common);
-                    break :blk ObjectSpecific{ .player_spawn = s };
-                },
-                EntityType.player => blk: {
-                    var s: Player = undefined;
-                    s.init(&common);
-                    break :blk ObjectSpecific{ .player = s };
-                },
-                EntityType.spring => blk: {
-                    var s: Spring = undefined;
-                    s.init(&common);
-                    break :blk ObjectSpecific{ .spring = s };
-                },
-            };
+                    EntityType.balloon => blk: {
+                        var b: Balloon = undefined;
+                        b.init(&common);
+                        break :blk ObjectSpecific{ .balloon = b };
+                    },
+                    EntityType.big_chest => blk: {
+                        var b: BigChest = undefined;
+                        b.init(&common);
+                        break :blk ObjectSpecific{ .big_chest = b };
+                    },
+                    EntityType.chest => blk: {
+                        var c: Chest = undefined;
+                        c.init(&common);
+                        break :blk ObjectSpecific{ .chest = c };
+                    },
+                    EntityType.fall_floor => blk: {
+                        var f: FallFloor = undefined;
+                        f.init(&common);
+                        break :blk ObjectSpecific{ .fall_floor = f };
+                    },
+                    EntityType.fake_wall => blk: {
+                        const f: FakeWall = FakeWall{};
+                        break :blk ObjectSpecific{ .fake_wall = f };
+                    },
+                    EntityType.flag => blk: {
+                        var f: Flag = undefined;
+                        f.init(&common);
+                        break :blk ObjectSpecific{ .flag = f };
+                    },
+                    EntityType.fly_fruit => blk: {
+                        var f: FlyFruit = undefined;
+                        f.init(&common);
+                        break :blk ObjectSpecific{ .fly_fruit = f };
+                    },
+                    EntityType.fruit => blk: {
+                        var f: Fruit = undefined;
+                        f.init(&common);
+                        break :blk ObjectSpecific{ .fruit = f };
+                    },
+                    EntityType.key => blk: {
+                        const k: Key = Key{};
+                        break :blk ObjectSpecific{ .key = k };
+                    },
+                    EntityType.life_up => blk: {
+                        var s: LifeUp = undefined;
+                        s.init(&common);
+                        break :blk ObjectSpecific{ .life_up = s };
+                    },
+                    EntityType.message => blk: {
+                        const m: Message = undefined;
+                        break :blk ObjectSpecific{ .message = m };
+                    },
+                    EntityType.orb => blk: {
+                        var o: Orb = undefined;
+                        o.init(&common);
+                        break :blk ObjectSpecific{ .orb = o };
+                    },
+                    EntityType.smoke => blk: {
+                        var s: Smoke = undefined;
+                        s.init(&common);
+                        break :blk ObjectSpecific{ .smoke = s };
+                    },
+                    EntityType.platform => blk: {
+                        var s: Platform = undefined;
+                        s.init(&common);
+                        break :blk ObjectSpecific{ .platform = s };
+                    },
+                    EntityType.room_title => blk: {
+                        var s: RoomTitle = undefined;
+                        s.init();
+                        break :blk ObjectSpecific{ .room_title = s };
+                    },
+                    EntityType.player_spawn => blk: {
+                        var s: PlayerSpawn = undefined;
+                        s.init(&common);
+                        break :blk ObjectSpecific{ .player_spawn = s };
+                    },
+                    EntityType.player => blk: {
+                        var s: Player = undefined;
+                        s.init(&common);
+                        break :blk ObjectSpecific{ .player = s };
+                    },
+                    EntityType.spring => blk: {
+                        var s: Spring = undefined;
+                        s.init(&common);
+                        break :blk ObjectSpecific{ .spring = s };
+                    },
+                };
             const object = Object{
                 .common = common,
                 .specific = specific,
@@ -1757,7 +1757,7 @@ pub fn celeste(comptime p8_api: P8API) type {
             const h: u32 = minutes.divTrunc(n(60)).to_int(u32);
 
             p8_api.rectfill(x, y, x.add(n(32)), y.add(n(6)), n(0));
-            //	print((h<10 and "0"..h or h)..":"..(m<10 and "0"..m or m)..":"..(s<10 and "0"..s or s),x+1,y+1,7)
+            //print((h<10 and "0"..h or h)..":"..(m<10 and "0"..m or m)..":"..(s<10 and "0"..s or s),x+1,y+1,7)
             var str: [20]u8 = undefined;
             @memset(&str, 0);
             _ = std.fmt.bufPrint(&str, "{:0>2}:{:0>2}:{:0>2} ", .{ h, m, s }) catch {

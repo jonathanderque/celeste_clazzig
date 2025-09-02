@@ -396,7 +396,7 @@ pub fn check_variables() void {
     }
 }
 
-pub fn audio_callback() callconv(.C) void {
+pub fn audio_callback() callconv(.c) void {
     var i: usize = 0;
     const len: usize = audio.SAMPLE_RATE / FPS;
     while (i < len) : (i += 1) {

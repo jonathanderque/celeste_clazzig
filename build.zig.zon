@@ -1,0 +1,12 @@
+.{
+    .name = .celeste_clazzig,
+    .version = "0.15.1",
+    .dependencies = .{
+        .SDL = .{
+            .url = "git+https://github.com/allyourcodebase/SDL#d29847ebcb6da34dec466a06163431982500a092",
+            .hash = "SDL-2.32.6-JToi38aTEgECY2mV9iUG7dNouCbarfJ1mkzjjm53gC80",
+        },
+    },
+    .paths = .{""},
+    .fingerprint = 0xf1f1cfda0fd2e540,
+}
