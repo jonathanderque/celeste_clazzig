@@ -35,7 +35,7 @@
       in rec {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
-              zigpkgs."0.15.1"
+              zigpkgs."0.15.2"
               pkgs.zls
               xorg.libX11
               xorg.libXext
