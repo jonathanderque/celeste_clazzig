@@ -4,7 +4,8 @@ const Step = std.Build.Step;
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
 
-    const optimize = b.standardOptimizeOption(.{});
+    // const optimize = b.standardOptimizeOption(.{});
+    const optimize = .ReleaseSafe;
 
     const cart_downloader_exe = b.addExecutable(.{
         .name = "cart_downloader",

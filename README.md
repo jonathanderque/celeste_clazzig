@@ -23,7 +23,7 @@ zig build download-cart
 The game can then be built and run with:
 
 ```shell
-zig build -Doptimize=ReleaseSafe run
+zig build run
 ```
 
 At this point, this has only be tested on Linux. Note that Debug builds are currently broken.
