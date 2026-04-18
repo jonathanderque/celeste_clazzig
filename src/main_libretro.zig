@@ -1,6 +1,5 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const GeneralPurposeAllocator = std.heap.GeneralPurposeAllocator;
 const retro = @cImport({
     @cInclude("libs/libretro.h");
 });
@@ -35,8 +34,6 @@ pub extern fn memset(__s: ?*anyopaque, __c: c_int, __n: c_ulong) ?*anyopaque;
 
 const screen_shake_option = "screen_shake";
 const global_volume_option = "global_volume_option";
-
-var gpa = GeneralPurposeAllocator(.{}){};
 
 const transparent_pixel: u32 = 0xff000000;
 const base_palette = [_]u32{
@@ -82,7 +79,6 @@ fn load_texture(output: *[]u32, spritesheet: []const u8, width: usize, height: u
 
 const RetroCeleste = celeste.celeste(p8_api);
 const RetroData = struct {
-    //gpa: GPA,
     allocator: Allocator,
     palette: [16]u32,
     frame_buffer: []u32,
@@ -244,8 +240,9 @@ pub export fn retro_reset() void {
 }
 
 var retro_data: RetroData = undefined;
+var arena_allocator: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
 pub export fn retro_init() void {
-    retro_data = RetroData.init(gpa.allocator()) catch {
+    retro_data = RetroData.init(arena_allocator.allocator()) catch {
         return undefined;
     };
     p8_pal_reset();
@@ -253,10 +250,6 @@ pub export fn retro_init() void {
 
 pub export fn retro_deinit() void {
     retro_data.deinit();
-    const leaked = gpa.deinit();
-    if (leaked == std.heap.Check.leak) {
-        std.log.err("leak detected", .{});
-    }
 }
 
 pub export fn retro_load_game(info: [*c]const retro.struct_retro_game_info) bool {

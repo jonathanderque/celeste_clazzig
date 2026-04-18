@@ -22,7 +22,7 @@
     overlays = [
       # Other overlays
       (final: prev: {
-        zigpkgs = inputs.zig.packages.${prev.system};
+        zigpkgs = inputs.zig.packages.${prev.stdenv.hostPlatform.system};
       })
     ];
 
@@ -35,10 +35,10 @@
       in rec {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
-              zigpkgs."0.15.2"
+              zigpkgs."0.16.0"
               pkgs.zls
-              xorg.libX11
-              xorg.libXext
+              libx11
+              libxext
               libGL
               libpulseaudio
           ];

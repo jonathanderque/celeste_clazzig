@@ -8,8 +8,8 @@ const Allocator = std.mem.Allocator;
 const Reader = std.fs.File.Reader;
 const Writer = std.fs.File.Writer;
 
-pub fn assert_file_exists(path: []const u8) !void {
-    var file = std.fs.cwd().openFile(path, .{}) catch |e|
+pub fn assert_file_exists(io: std.Io, path: []const u8) !void {
+    var file = std.Io.Dir.cwd().openFile(io, path, .{}) catch |e|
         switch (e) {
             error.PathAlreadyExists => {
                 return;
@@ -21,17 +21,16 @@ pub fn assert_file_exists(path: []const u8) !void {
                 return e;
             },
         };
-    defer file.close();
+    defer file.close(io);
 }
 
-pub fn extract(allocator: Allocator, path: []const u8, w: *std.Io.Writer) !void {
-    var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
-    const image_path = try std.fs.realpath(path, &path_buffer);
-    const image_file = try std.fs.openFileAbsolute(image_path, .{});
-    defer image_file.close();
+pub fn extract(allocator: Allocator, io: std.Io, path: []const u8, w: *std.Io.Writer) !void {
+    var image_file = try std.Io.Dir.cwd().openFile(io, path, .{});
+    defer image_file.close(io);
 
-    const stats = try image_file.stat();
-    const file_content = try image_file.readToEndAlloc(allocator, stats.size);
+    const stats = try image_file.stat(io);
+    var file_reader = image_file.reader(io, &.{});
+    const file_content = try file_reader.interface.allocRemaining(allocator, std.Io.Limit.limited(1 + stats.size));
     defer allocator.free(file_content);
     var width: c_int = undefined;
     var height: c_int = undefined;
@@ -77,26 +76,19 @@ pub fn extract(allocator: Allocator, path: []const u8, w: *std.Io.Writer) !void 
     try w.flush();
 }
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer {
-        const leaked = gpa.deinit();
-        if (leaked == std.heap.Check.leak) {
-            std.log.err("leak detected", .{});
-        }
-    }
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
 
     const cart_path = "src/cart/15133.p8.png";
 
-    assert_file_exists(cart_path) catch {
+    assert_file_exists(init.io, cart_path) catch {
         std.process.exit(1);
     };
 
-    var out_file = try std.fs.cwd().createFile("src/generated/celeste.zig", .{});
-    defer out_file.close();
+    var out_file = try std.Io.Dir.cwd().createFile(init.io, "src/generated/celeste.zig", .{});
+    defer out_file.close(init.io);
 
     var buffer: [4096]u8 = undefined;
-    var fs_writer = out_file.writer(&buffer);
-    try extract(allocator, cart_path, &fs_writer.interface);
+    var fs_writer = out_file.writer(init.io, &buffer);
+    try extract(allocator, init.io, cart_path, &fs_writer.interface);
 }

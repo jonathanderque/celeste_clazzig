@@ -1803,7 +1803,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                     EntityType.balloon => |*b| {
                         b.update(&object.common);
                     },
-                    EntityType.big_chest => |_| {},
+                    EntityType.big_chest => {},
                     EntityType.chest => |*c| {
                         c.update(&object.common);
                     },
@@ -1813,7 +1813,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                     EntityType.fake_wall => |*fw| {
                         fw.update(&object.common);
                     },
-                    EntityType.flag => |_| {},
+                    EntityType.flag => {},
                     EntityType.fly_fruit => |*ff| {
                         ff.update(&object.common);
                     },
@@ -1826,8 +1826,8 @@ pub fn celeste(comptime p8_api: P8API) type {
                     EntityType.life_up => |*lu| {
                         lu.update(&object.common);
                     },
-                    EntityType.message => |_| {},
-                    EntityType.orb => |_| {},
+                    EntityType.message => {},
+                    EntityType.orb => {},
                     EntityType.platform => |*p| {
                         p.update(&object.common);
                     },
@@ -1843,7 +1843,7 @@ pub fn celeste(comptime p8_api: P8API) type {
                     EntityType.spring => |*s| {
                         s.update(&object.common);
                     },
-                    EntityType.room_title => |_| {},
+                    EntityType.room_title => {},
                 }
             }
         }
